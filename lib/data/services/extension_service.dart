@@ -445,7 +445,9 @@ class ExtensionService {
   Future<List<ExtensionListItem>> latest(int page) async {
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
-        await runtime.evaluateAsync('stringify(()=>extension.latest($page))'),
+        await runtime.evaluateAsync(Platform.isLinux
+            ? 'extension.latest($page)'
+            : 'stringify(()=>extension.latest($page))'),
       );
       List<ExtensionListItem> result =
           jsonDecode(jsResult.stringResult).map<ExtensionListItem>((e) {
@@ -465,8 +467,9 @@ class ExtensionService {
   }) async {
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
-        await runtime.evaluateAsync(
-            'stringify(()=>extension.search("$kw",$page,${filter == null ? null : jsonEncode(filter)}))'),
+        await runtime.evaluateAsync(Platform.isLinux
+            ? 'extension.search("$kw",$page,${filter == null ? null : jsonEncode(filter)})'
+            : 'stringify(()=>extension.search("$kw",$page,${filter == null ? null : jsonEncode(filter)}))'),
       );
       List<ExtensionListItem> result =
           jsonDecode(jsResult.stringResult).map<ExtensionListItem>((e) {
@@ -484,10 +487,13 @@ class ExtensionService {
   }) async {
     late String eval;
     if (filter == null) {
-      eval = 'stringify(()=>extension.createFilter())';
+      eval = Platform.isLinux
+          ? 'extension.createFilter()'
+          : 'stringify(()=>extension.createFilter())';
     } else {
-      eval =
-          'stringify(()=>extension.createFilter(JSON.parse(\'${jsonEncode(filter)}\')))';
+      eval = Platform.isLinux
+          ? 'extension.createFilter(JSON.parse(\'${jsonEncode(filter)}\'))'
+          : 'stringify(()=>extension.createFilter(JSON.parse(\'${jsonEncode(filter)}\')))';
     }
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
@@ -506,7 +512,9 @@ class ExtensionService {
   Future<ExtensionDetail> detail(String url) async {
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
-        await runtime.evaluateAsync('stringify(()=>extension.detail("$url"))'),
+        await runtime.evaluateAsync(Platform.isLinux
+            ? 'extension.detail("$url")'
+            : 'stringify(()=>extension.detail("$url"))'),
       );
       final result =
           ExtensionDetail.fromJson(jsonDecode(jsResult.stringResult));
@@ -518,7 +526,9 @@ class ExtensionService {
   Future<Object?> watch(String url) async {
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
-        await runtime.evaluateAsync('stringify(()=>extension.watch("$url"))'),
+        await runtime.evaluateAsync(Platform.isLinux
+            ? 'extension.watch("$url")'
+            : 'stringify(()=>extension.watch("$url"))'),
       );
       final data = jsonDecode(jsResult.stringResult);
 
