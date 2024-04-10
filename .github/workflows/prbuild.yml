@@ -79,3 +79,24 @@ jobs:
         with:
           path: "build/windows/x64/runner/Miru-App"
           name: Miru-pr-${{ github.event.pull_request.number }}-windows.zip
+
+  build-and-release-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2.12.0
+        with:
+          flutter-version: 3.16.8
+          channel: stable
+      - name: Install project dependencies
+        run: flutter pub get
+      - name: Build artifacts
+        run: flutter build linux --release
+      - name: Rename Release Directory Name to Miru-App # 为了解压缩后更好看一点
+        run: |
+          mv build/linux/x64/release/bundle build/linux/x64/release/Miru-App
+      # 发布安装包
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          path: "build/linux/x64/release/Miru-App"
