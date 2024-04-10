@@ -40,7 +40,6 @@ class ExtensionService {
 
     // 初始化runtime
     runtime = getJavascriptRuntime();
-    jsBridge = JsBridge(jsRuntime: runtime);
     // 注册方法
     // 日志
     runtime.onMessage('log', (dynamic args) {
@@ -51,7 +50,8 @@ class ExtensionService {
         args[0],
       );
     });
-    Future<dynamic> jsRequest(dynamic args) async {
+    // 请求
+    runtime.onMessage('request', (dynamic args) async {
       _cuurentRequestUrl = args[0];
       final headers = args[1]['headers'] ?? {};
       if (headers['User-Agent'] == null) {
@@ -116,10 +116,7 @@ class ExtensionService {
         );
         rethrow;
       }
-    }
-
-    // 请求
-    runtime.onMessage('request', (args) => jsRequest(args));
+    });
 
     // 设置
     runtime.onMessage('registerSetting', (dynamic args) async {
@@ -227,6 +224,7 @@ class ExtensionService {
     });
 
     if (Platform.isLinux) {
+      jsBridge = JsBridge(jsRuntime: runtime);
       jsBridge!.setHandler('request$className', (arg) async {
         final message = jsonDecode(arg);
         _cuurentRequestUrl = message[0];
@@ -556,7 +554,6 @@ async function stringify(callback) {
 }
 
 
-
             '''
         : '''
           // 重写 console.log
@@ -654,25 +651,23 @@ async function stringify(callback) {
             name = "${extension.name}";
             // 在 load 中注册的 keys
             settingKeys = [];
-            
-            querySelector(content, selector) {
-              return new Element(content, selector);
-            }
             async request(url, options) {
               options = options || {};
               options.headers = options.headers || {};
               const miruUrl = options.headers["Miru-Url"] || "${extension.webSite}";
               options.method = options.method || "get";
               const res = await sendMessage(
-                "request$className",
+                "request",
                 JSON.stringify([miruUrl + url, options])
               );
-
               try {
                 return JSON.parse(res);
               } catch (e) {
                 return res;
               }
+            }
+            querySelector(content, selector) {
+              return new Element(content, selector);
             }
             queryXPath(content, selector) {
               return new XPathNode(content, selector);
@@ -728,7 +723,6 @@ async function stringify(callback) {
             const data = await callback();
             return typeof data === "object" ? JSON.stringify(data,0,2) : data;
           }
-
     ''');
 
     final ext = extScript.replaceAll(RegExp(r'export default class.*'),
@@ -789,7 +783,7 @@ async function stringify(callback) {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux
             ? '${className}Instance.latest($page)'
-            : 'stringify(()=>extension.latest($page))'),
+            : 'stringify(()=>${className}Instance.latest($page))'),
       );
 
       List<ExtensionListItem> result =
@@ -811,8 +805,8 @@ async function stringify(callback) {
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux
-            ? 'extension.search("$kw",$page,${filter == null ? null : jsonEncode(filter)})'
-            : 'stringify(()=>extension.search("$kw",$page,${filter == null ? null : jsonEncode(filter)}))'),
+            ? '${className}Instance.search("$kw",$page,${filter == null ? null : jsonEncode(filter)})'
+            : 'stringify(()=>${className}Instance.search("$kw",$page,${filter == null ? null : jsonEncode(filter)}))'),
       );
       List<ExtensionListItem> result =
           jsonDecode(jsResult.stringResult).map<ExtensionListItem>((e) {
@@ -829,15 +823,14 @@ async function stringify(callback) {
     Map<String, List<String>>? filter,
   }) async {
     late String eval;
-    final className = extension.package.replaceAll('.', '');
     if (filter == null) {
       eval = Platform.isLinux
           ? '${className}Instance.createFilter()'
-          : 'stringify(()=>extension.createFilter())';
+          : 'stringify(()=>${className}Instance.createFilter())';
     } else {
       eval = Platform.isLinux
-          ? '{className}Instance.createFilter(JSON.parse(\'${jsonEncode(filter)}\'))'
-          : 'stringify(()=>extension.createFilter(JSON.parse(\'${jsonEncode(filter)}\')))';
+          ? '${className}Instance.createFilter(JSON.parse(\'${jsonEncode(filter)}\'))'
+          : 'stringify(()=>${className}Instance.createFilter(JSON.parse(\'${jsonEncode(filter)}\')))';
     }
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
@@ -858,7 +851,7 @@ async function stringify(callback) {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux
             ? '${className}Instance.detail("$url")'
-            : 'stringify(()=>extension.detail("$url"))'),
+            : 'stringify(()=>${className}Instance.detail("$url"))'),
       );
       final result =
           ExtensionDetail.fromJson(jsonDecode(jsResult.stringResult));
@@ -872,7 +865,7 @@ async function stringify(callback) {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux
             ? '${className}Instance.watch("$url")'
-            : 'stringify(()=>extension.watch("$url"))'),
+            : 'stringify(()=>${className}Instance.watch("$url"))'),
       );
       final data = jsonDecode(jsResult.stringResult);
 
@@ -894,8 +887,8 @@ async function stringify(callback) {
   Future<String> checkUpdate(url) async {
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
-        await runtime
-            .evaluateAsync('stringify(()=>extension.checkUpdate("$url"))'),
+        await runtime.evaluateAsync(
+            'stringify(()=>${className}Instance.checkUpdate("$url"))'),
       );
       return jsResult.stringResult;
     });
