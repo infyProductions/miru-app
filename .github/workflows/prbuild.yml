@@ -83,6 +83,8 @@ jobs:
   build-and-release-linux:
     runs-on: ubuntu-latest
     steps:
+      - name: Install Ninja
+        run: sudo apt-get install ninja-build
       - uses: actions/checkout@v3
       - uses: subosito/flutter-action@v2.12.0
         with:
