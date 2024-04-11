@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_js/extensions/fetch.dart';
 import 'package:get/get.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart';
@@ -17,13 +18,14 @@ import 'package:flutter_js/flutter_js.dart';
 import 'package:miru_app/models/index.dart';
 import 'package:miru_app/data/services/database_service.dart';
 import 'package:miru_app/utils/extension.dart';
+import 'package:flutter_js/javascriptcore/jscore_runtime.dart';
 
 class ExtensionService {
   late JavascriptRuntime runtime;
   late Extension extension;
   String _cuurentRequestUrl = '';
   String evalString = '';
-  JsBridge? jsBridge;
+  late JsBridge jsBridge;
   static Map<dynamic, dynamic> evalMap = {};
   String className = '';
   bool isinit = false;
@@ -39,7 +41,17 @@ class ExtensionService {
     final content = file.readAsStringSync();
 
     // 初始化runtime
-    runtime = getJavascriptRuntime();
+    if (Platform.isAndroid) {
+      runtime = QuickJsRuntime2(stackSize: 1024 * 1024);
+    } else if (Platform.isWindows) {
+      runtime = QuickJsRuntime2();
+    } else if (Platform.isLinux) {
+      runtime = JavascriptCoreRuntime();
+    } else {
+      runtime = JavascriptCoreRuntime();
+    }
+    runtime.enableFetch();
+    runtime.enableHandlePromises();
     // 注册方法
     // 日志
     runtime.onMessage('log', (dynamic args) {
@@ -225,7 +237,7 @@ class ExtensionService {
 
     if (Platform.isLinux) {
       jsBridge = JsBridge(jsRuntime: runtime);
-      jsBridge!.setHandler('request$className', (arg) async {
+      jsBridge.setHandler('request$className', (arg) async {
         final message = jsonDecode(arg);
         _cuurentRequestUrl = message[0];
         final options = message[1];
@@ -272,7 +284,7 @@ class ExtensionService {
           );
           // await runtime
           //     .handlePromise(await runtime.evaluateAsync(evalMap[package]));
-          await jsBridge!.sendMessage('request$className', res.data);
+          await jsBridge.sendMessage('request$className', res.data);
         } on DioException catch (e) {
           log.url = e.requestOptions.uri.toString();
           log.requestHeaders = e.requestOptions.headers;
@@ -291,7 +303,7 @@ class ExtensionService {
           rethrow;
         }
       });
-      jsBridge!.setHandler('log$className', (dynamic message) async {
+      jsBridge.setHandler('log$className', (dynamic message) async {
         final args = jsonDecode(message);
         logger.info(args[0]);
         ExtensionUtils.addLog(
@@ -300,16 +312,16 @@ class ExtensionService {
           args[0],
         );
       });
-      jsBridge!.setHandler("getAttributeText$className", (message) async {
+      jsBridge.setHandler("getAttributeText$className", (message) async {
         final args = jsonDecode(message);
         final content = args[0];
         final selector = args[1];
         final attr = args[2];
         final doc = parse(content).querySelector(selector);
-        await jsBridge!
-            .sendMessage('getAttributeText$className', doc?.attributes[attr]);
+        await jsBridge.sendMessage(
+            'getAttributeText$className', doc?.attributes[attr]);
       });
-      jsBridge!.setHandler('querySelectorAll$className',
+      jsBridge.setHandler('querySelectorAll$className',
           (dynamic message) async {
         final args = jsonDecode(message);
         final content = args["content"];
@@ -318,9 +330,9 @@ class ExtensionService {
         final elements = jsonEncode(doc.map((e) {
           return e.outerHtml;
         }).toList());
-        await jsBridge!.sendMessage('querySelectorAll$className', elements);
+        await jsBridge.sendMessage('querySelectorAll$className', elements);
       });
-      jsBridge!.setHandler('querySelector$className', (message) async {
+      jsBridge.setHandler('querySelector$className', (message) async {
         final args = jsonDecode(message);
         final content = args[0];
         final selector = args[1];
@@ -338,13 +350,12 @@ class ExtensionService {
           default:
             result = doc?.outerHtml ?? '';
         }
-        await jsBridge!.sendMessage('querySelector$className', result);
+        await jsBridge.sendMessage('querySelector$className', result);
       });
-      jsBridge!.setHandler('registerSetting$className',
-          (dynamic message) async {
+      jsBridge.setHandler('registerSetting$className', (dynamic message) async {
         final args = jsonDecode(message);
         args[0]['package'] = extension.package;
-        jsBridge!.sendMessage(
+        jsBridge.sendMessage(
             'registerSetting$className',
             DatabaseService.registerExtensionSetting(
               ExtensionSetting()
@@ -358,11 +369,11 @@ class ExtensionService {
                 ..options = jsonEncode(args[0]['options']),
             ));
       });
-      jsBridge!.setHandler('getSetting$className', (dynamic message) async {
+      jsBridge.setHandler('getSetting$className', (dynamic message) async {
         final args = jsonDecode(message);
         final setting = await DatabaseService.getExtensionSetting(
             extension.package, args[0]);
-        await jsBridge!.sendMessage(
+        await jsBridge.sendMessage(
             'getSetting$className', setting!.value ?? setting.defaultValue);
       });
     }
