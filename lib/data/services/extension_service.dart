@@ -31,7 +31,7 @@ class ExtensionService {
     extension = ext;
     className = extension.package.replaceAll('.', '');
     if (!className.isAlphabetOnly) {
-      className = "${className.replaceAll(RegExp(r'\d'), '')}Renamed";
+      className = "${className.replaceAll(RegExp(r'[^a-zA-z]'), '')}Renamed";
     }
     // 读取文件
     final file =
@@ -340,7 +340,9 @@ class ExtensionService {
         }
         await jsBridge!.sendMessage('querySelector$className', result);
       });
-      jsBridge!.setHandler('registerSetting$className', (dynamic args) async {
+      jsBridge!.setHandler('registerSetting$className',
+          (dynamic message) async {
+        final args = jsonDecode(message);
         args[0]['package'] = extension.package;
         jsBridge!.sendMessage(
             'registerSetting$className',
@@ -355,6 +357,13 @@ class ExtensionService {
                 ..defaultValue = args[0]['defaultValue']
                 ..options = jsonEncode(args[0]['options']),
             ));
+      });
+      jsBridge!.setHandler('getSetting$className', (dynamic message) async {
+        final args = jsonDecode(message);
+        final setting = await DatabaseService.getExtensionSetting(
+            extension.package, args[0]);
+        await jsBridge!.sendMessage(
+            'getSetting$className', setting!.value ?? setting.defaultValue);
       });
     }
     // 初始化运行扩展
@@ -533,7 +542,12 @@ class Extension {
     throw new Error("not implement checkUpdate");
   }
   async getSetting(key) {
-    return sendMessage("getSetting", JSON.stringify([key]));
+    const waitForChange  = new Promise(resolve=>{DartBridge.setHandler("getSetting$className", async (arg) => {
+      resolve(arg);
+    })});
+    DartBridge.sendMessage("getSetting$className",  JSON.stringify([key]));
+    const elements = await waitForChange;
+    return elements;
   }
   async registerSetting(settings) {
     console.log(JSON.stringify([settings]));
