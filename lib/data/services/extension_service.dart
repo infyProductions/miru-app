@@ -52,18 +52,17 @@ class ExtensionService {
     }
     runtime.enableFetch();
     runtime.enableHandlePromises();
-    // 注册方法
-    // 日志
-    runtime.onMessage('log', (dynamic args) {
-      // debugPrint(args[0]);
+
+    jsLog(dynamic args) {
+      logger.info(args[0]);
       ExtensionUtils.addLog(
         extension,
         ExtensionLogLevel.info,
         args[0],
       );
-    });
-    // 请求
-    runtime.onMessage('request', (dynamic args) async {
+    }
+
+    jsRequest(dynamic args) async {
       _cuurentRequestUrl = args[0];
       final headers = args[1]['headers'] ?? {};
       if (headers['User-Agent'] == null) {
@@ -128,10 +127,9 @@ class ExtensionService {
         );
         rethrow;
       }
-    });
+    }
 
-    // 设置
-    runtime.onMessage('registerSetting', (dynamic args) async {
+    jsRegisterSetting(dynamic args) async {
       args[0]['package'] = extension.package;
 
       return DatabaseService.registerExtensionSetting(
@@ -145,68 +143,71 @@ class ExtensionService {
           ..defaultValue = args[0]['defaultValue']
           ..options = jsonEncode(args[0]['options']),
       );
-    });
-    runtime.onMessage('getSetting', (dynamic args) async {
+    }
+
+    jsGetMessage(dynamic args) async {
       final setting =
           await DatabaseService.getExtensionSetting(extension.package, args[0]);
       return setting!.value ?? setting.defaultValue;
-    });
+    }
 
-    // 清理扩展设置
-    runtime.onMessage('cleanSettings', (dynamic args) async {
+    runtime.onMessage('getSetting', (dynamic args) => jsGetMessage(args));
+
+    jsCleanSettings(dynamic args) async {
       // debugPrint('cleanSettings: ${args[0]}');
       return DatabaseService.cleanExtensionSettings(
           extension.package, List<String>.from(args[0]));
-    });
+    }
 
-    // css 选择器
-    runtime.onMessage('querySelector', (dynamic args) {
+    jsQuerySelector(dynamic args) {
       final content = args[0];
       final selector = args[1];
       final fun = args[2];
 
       final doc = parse(content).querySelector(selector);
-
+      String result = '';
       switch (fun) {
         case 'text':
-          return doc?.text ?? '';
+          result = doc?.text ?? '';
         case 'outerHTML':
-          return doc?.outerHtml ?? '';
+          result = doc?.outerHtml ?? '';
         case 'innerHTML':
-          return doc?.innerHtml ?? '';
+          result = doc?.innerHtml ?? '';
         default:
-          return doc?.outerHtml ?? '';
+          result = doc?.outerHtml ?? '';
       }
-    });
+      return result;
+    }
 
-    // xpath 选择器
-    runtime.onMessage('queryXPath', (args) {
+    jsQueryXPath(args) {
       final content = args[0];
       final selector = args[1];
       final fun = args[2];
 
       final xpath = HtmlXPath.html(content);
       final result = xpath.queryXPath(selector);
-
+      String returnVal = '';
       switch (fun) {
         case 'attr':
-          return result.attr ?? '';
+          returnVal = result.attr ?? '';
         case 'attrs':
-          return jsonEncode(result.attrs);
+          returnVal = jsonEncode(result.attrs);
         case 'text':
-          return result.node?.text;
+          returnVal = result.node?.text ?? '';
         case 'allHTML':
-          return result.nodes
+          returnVal = result.nodes
               .map((e) => (e.node as Element).outerHtml)
-              .toList();
+              .toList()
+              .toString();
         case 'outerHTML':
-          return (result.node?.node as Element).outerHtml;
+          returnVal = (result.node?.node as Element).outerHtml;
         default:
-          return result.node?.text;
+          returnVal = result.node?.text ?? "";
       }
-    });
+      return returnVal;
+    }
 
-    runtime.onMessage('removeSelector', (dynamic args) {
+    jsRemoveSelector(dynamic args) {
       final content = args[0];
       final selector = args[1];
       final doc = parse(content);
@@ -214,168 +215,63 @@ class ExtensionService {
         element.remove();
       });
       return doc.outerHtml;
-    });
+    }
 
-    // 获取标签属性
-    runtime.onMessage('getAttributeText', (args) {
+    jsGetAttributeText(args) {
       final content = args[0];
       final selector = args[1];
       final attr = args[2];
       final doc = parse(content).querySelector(selector);
       return doc?.attributes[attr];
-    });
+    }
 
-    runtime.onMessage('querySelectorAll', (dynamic args) async {
-      final content = args[0];
-      final selector = args[1];
+    jsQuerySelectorAll(dynamic args) async {
+      final content = args["content"];
+      final selector = args["selector"];
       final doc = parse(content).querySelectorAll(selector);
       final elements = jsonEncode(doc.map((e) {
         return e.outerHtml;
       }).toList());
       return elements;
-    });
+    }
 
+    // 日志
+    runtime.onMessage('log', (args) => jsLog(args));
+    // 请求
+    runtime.onMessage('request', (args) => jsRequest(args));
+    // 设置
+    runtime.onMessage('registerSetting', (args) => jsRegisterSetting(args));
+    // 清理扩展设置
+    runtime.onMessage('cleanSettings', (dynamic args) => jsCleanSettings(args));
+    // xpath 选择器
+    runtime.onMessage('queryXPath', (arg) => jsQueryXPath(arg));
+    runtime.onMessage('removeSelector', (args) => jsRemoveSelector(args));
+    // 获取标签属性
+    runtime.onMessage('getAttributeText', (args) => jsGetAttributeText(args));
+    runtime.onMessage(
+        'querySelectorAll', (dynamic args) => jsQuerySelectorAll(args));
+    // css 选择器
+    runtime.onMessage('querySelector', (arg) => jsQuerySelector(arg));
     if (Platform.isLinux) {
+      handleDartBridge(String channelName, Function fn) {
+        jsBridge.setHandler(channelName, (message) async {
+          final args = jsonDecode(message);
+          final result = await fn(args);
+          await jsBridge.sendMessage(channelName, result);
+        });
+      }
+
       jsBridge = JsBridge(jsRuntime: runtime);
-      jsBridge.setHandler('request$className', (arg) async {
-        final message = jsonDecode(arg);
-        _cuurentRequestUrl = message[0];
-        final options = message[1];
-        final headers = options['headers'] ?? {};
-        if (headers['User-Agent'] == null) {
-          headers['User-Agent'] = MiruStorage.getUASetting();
-        }
-
-        final log = ExtensionNetworkLog(
-          extension: extension,
-          url: _cuurentRequestUrl,
-          method: options['method'],
-          requestHeaders: headers,
-        );
-        final key = UniqueKey().toString();
-        ExtensionUtils.addNetworkLog(
-          key,
-          log,
-        );
-
-        try {
-          final res = await dio.request<String>(
-            _cuurentRequestUrl,
-            data: options['data'],
-            queryParameters: options['queryParameters'] ?? {},
-            options: Options(
-              headers: headers,
-              method: options['method'],
-            ),
-          );
-          log.requestHeaders = res.requestOptions.headers;
-          log.responseBody = res.data;
-          log.responseHeaders = res.headers.map.map(
-            (key, value) => MapEntry(
-              key,
-              value.join(';'),
-            ),
-          );
-          log.statusCode = res.statusCode;
-
-          ExtensionUtils.addNetworkLog(
-            key,
-            log,
-          );
-          // await runtime
-          //     .handlePromise(await runtime.evaluateAsync(evalMap[package]));
-          await jsBridge.sendMessage('request$className', res.data);
-        } on DioException catch (e) {
-          log.url = e.requestOptions.uri.toString();
-          log.requestHeaders = e.requestOptions.headers;
-          log.responseBody = e.response?.data;
-          log.responseHeaders = e.response?.headers.map.map(
-            (key, value) => MapEntry(
-              key,
-              value.join(';'),
-            ),
-          );
-          log.statusCode = e.response?.statusCode;
-          ExtensionUtils.addNetworkLog(
-            key,
-            log,
-          );
-          rethrow;
-        }
-      });
-      jsBridge.setHandler('log$className', (dynamic message) async {
-        final args = jsonDecode(message);
-        logger.info(args[0]);
-        ExtensionUtils.addLog(
-          extension,
-          ExtensionLogLevel.info,
-          args[0],
-        );
-      });
-      jsBridge.setHandler("getAttributeText$className", (message) async {
-        final args = jsonDecode(message);
-        final content = args[0];
-        final selector = args[1];
-        final attr = args[2];
-        final doc = parse(content).querySelector(selector);
-        await jsBridge.sendMessage(
-            'getAttributeText$className', doc?.attributes[attr]);
-      });
-      jsBridge.setHandler('querySelectorAll$className',
-          (dynamic message) async {
-        final args = jsonDecode(message);
-        final content = args["content"];
-        final selector = args["selector"];
-        final doc = parse(content).querySelectorAll(selector);
-        final elements = jsonEncode(doc.map((e) {
-          return e.outerHtml;
-        }).toList());
-        await jsBridge.sendMessage('querySelectorAll$className', elements);
-      });
-      jsBridge.setHandler('querySelector$className', (message) async {
-        final args = jsonDecode(message);
-        final content = args[0];
-        final selector = args[1];
-        final fun = args[2];
-
-        final doc = parse(content).querySelector(selector);
-        String result = '';
-        switch (fun) {
-          case 'text':
-            result = doc?.text ?? '';
-          case 'outerHTML':
-            result = doc?.outerHtml ?? '';
-          case 'innerHTML':
-            result = doc?.innerHtml ?? '';
-          default:
-            result = doc?.outerHtml ?? '';
-        }
-        await jsBridge.sendMessage('querySelector$className', result);
-      });
-      jsBridge.setHandler('registerSetting$className', (dynamic message) async {
-        final args = jsonDecode(message);
-        args[0]['package'] = extension.package;
-        jsBridge.sendMessage(
-            'registerSetting$className',
-            DatabaseService.registerExtensionSetting(
-              ExtensionSetting()
-                ..package = extension.package
-                ..title = args[0]['title']
-                ..key = args[0]['key']
-                ..value = args[0]['value']
-                ..type = ExtensionSetting.stringToType(args[0]['type'])
-                ..description = args[0]['description']
-                ..defaultValue = args[0]['defaultValue']
-                ..options = jsonEncode(args[0]['options']),
-            ));
-      });
-      jsBridge.setHandler('getSetting$className', (dynamic message) async {
-        final args = jsonDecode(message);
-        final setting = await DatabaseService.getExtensionSetting(
-            extension.package, args[0]);
-        await jsBridge.sendMessage(
-            'getSetting$className', setting!.value ?? setting.defaultValue);
-      });
+      handleDartBridge('cleanSettings$className', jsCleanSettings);
+      handleDartBridge('request$className', jsRequest);
+      handleDartBridge('log$className', jsLog);
+      handleDartBridge('queryXPath$className', jsQueryXPath);
+      handleDartBridge('removeSelector$className', jsRemoveSelector);
+      handleDartBridge("getAttributeText$className", jsGetAttributeText);
+      handleDartBridge('querySelectorAll$className', jsQuerySelectorAll);
+      handleDartBridge('querySelector$className', jsQuerySelector);
+      handleDartBridge('registerSetting$className', jsRegisterSetting);
+      handleDartBridge('getSetting$className', jsGetMessage);
     }
     // 初始化运行扩展
     await _initRunExtension(content);
@@ -401,30 +297,16 @@ class Element {
   }
 
   async execute(fun) {
-    const waitForChange  = new Promise(resolve=>{DartBridge.setHandler("querySelector$className", async (arg) => {
-      resolve(arg);
-    })});
-    DartBridge.sendMessage("querySelector$className",  JSON.stringify([this.content, this.selector, fun]));
-    const elements = await waitForChange;
-    // console.log('dart bridge passed -- querySelector')
-    return elements;
+    return await handlePromise("querySelector$className",JSON.stringify([this.content, this.selector, fun]));
   }
 
   async removeSelector(selector) {
-    this.content = await sendMessage(
-      "removeSelector",
-      JSON.stringify([await this.outerHTML, selector])
-    );
+    this.content = await handlePromise("removeSelector$className",JSON.stringify([await this.outerHTML, selector]));
     return this;
   }
 
   async getAttributeText(attr) {
-    const waitForChange  = new Promise(resolve=>{DartBridge.setHandler("getAttributeText$className", async (arg) => {
-      resolve(arg);
-    })});
-    DartBridge.sendMessage("getAttributeText$className",  JSON.stringify([await this.outerHTML, this.selector, attr]));
-    const elements = await waitForChange;
-    return elements;
+    return await handlePromise("getAttributeText$className",JSON.stringify([await this.outerHTML, this.selector, attr]));
   }
 
   get text() {
@@ -446,10 +328,7 @@ class XPathNode {
   }
 
   async excute(fun) {
-    return await sendMessage(
-      "queryXPath",
-      JSON.stringify([this.content, this.selector, fun])
-    );
+    return await handlePromise("queryXPath$className",JSON.stringify([this.content, this.selector, fun]));
   }
 
   get attr() {
@@ -494,36 +373,23 @@ class Extension {
     options.headers = options.headers || {};
     const miruUrl = options.headers["Miru-Url"] || "${extension.webSite}";
     options.method = options.method || "get";
-    var message = null
-    const waitForChange = new Promise(resolve => {
-      DartBridge.setHandler("request$className", async (res) => {
-        try {
-          message = JSON.parse(res);
-        } catch (e) {
-          message = res;
-        }
-        resolve();
-      });
-    });
-
-    DartBridge.sendMessage("request$className", JSON.stringify([miruUrl + url, options,"${extension.package}"]));
-    await waitForChange;
-    return message;
+    const message = await handlePromise("request$className",JSON.stringify([miruUrl + url, options,"${extension.package}"]));
+    try {
+      return JSON.parse(message);
+    }catch(e){
+      return message;
+    }
   }
   queryXPath(content, selector) {
     return new XPathNode(content, selector);
   }
   async querySelectorAll(content, selector) {
-    const waitForChange  = new Promise(resolve=>{DartBridge.setHandler("querySelectorAll$className", async (arg) => {
-      const  elements = [];
-      const message = JSON.parse(arg);
-      for(const e of message){
-        elements.push(new Element(e, selector));
-      }
-      resolve(elements);
-    })});
-    DartBridge.sendMessage("querySelectorAll$className",  JSON.stringify({content:content,selector:selector}));
-    const elements = await waitForChange;
+    const arg = await handlePromise("querySelectorAll$className",JSON.stringify({content:content, selector:selector}));
+    const message = JSON.parse(arg);
+    const elements = [];
+    for(const e of message){
+      elements.push(new Element(e, selector));
+    }
     return elements;
   }
   async getAttributeText(content, selector, attr) {
@@ -553,26 +419,22 @@ class Extension {
     throw new Error("not implement checkUpdate");
   }
   async getSetting(key) {
-    const waitForChange  = new Promise(resolve=>{DartBridge.setHandler("getSetting$className", async (arg) => {
-      resolve(arg);
-    })});
-    DartBridge.sendMessage("getSetting$className",  JSON.stringify([key]));
-    const elements = await waitForChange;
-    return elements;
+    return await handlePromise("getSetting$className",JSON.stringify([key]));
   }
   async registerSetting(settings) {
     console.log(JSON.stringify([settings]));
     this.settingKeys.push(settings.key);
-    const waitForChange  = new Promise(resolve=>{DartBridge.setHandler("registerSetting$className", async (arg) => {
-      resolve(arg);
-    })});
-    DartBridge.sendMessage("registerSetting$className",  JSON.stringify([settings]));
-    const elements = await waitForChange;
-    return elements;
+    return await handlePromise("registerSetting$className",JSON.stringify([settings]));
   }
   async load() {}
 }
-
+async function handlePromise(channelName,message){
+  const waitForChange  = new Promise(resolve=>{DartBridge.setHandler(channelName, async (arg) => {
+    resolve(arg);
+  })});
+  DartBridge.sendMessage(channelName,  message);
+  return await waitForChange
+}
 async function stringify(callback) {
   const data = await callback();
   return typeof data === "object" ? JSON.stringify(data,0,2) : data;
@@ -700,7 +562,7 @@ async function stringify(callback) {
             async querySelectorAll(content, selector) {
               let elements = [];
               JSON.parse(
-                await sendMessage("querySelectorAll", JSON.stringify([content, selector]))
+                await sendMessage("querySelectorAll", JSON.stringify({content:content,selector:selector}))
               ).forEach((e) => {
                 elements.push(new Element(e, selector));
               });
@@ -760,6 +622,9 @@ async function stringify(callback) {
       }
       var ${className}Instance = new $className();
       ${className}Instance.load().then(()=>{
+        if(${Platform.isLinux}){
+           DartBridge.sendMessage("cleanSettings$className",JSON.stringify([extension.settingKeys]));
+        }
         sendMessage("cleanSettings", JSON.stringify([extension.settingKeys]));
       });
     ''');
