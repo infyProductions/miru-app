@@ -7,6 +7,7 @@ import 'package:miru_app/data/providers/bt_server_provider.dart';
 import 'package:miru_app/controllers/bt_dialog_controller.dart';
 import 'package:miru_app/controllers/main_controller.dart';
 import 'package:miru_app/utils/application.dart';
+import 'package:miru_app/utils/log.dart';
 import 'package:miru_app/utils/miru_directory.dart';
 import 'package:miru_app/utils/request.dart';
 import 'package:path/path.dart' as path;
@@ -22,7 +23,7 @@ class BTServerUtils {
     debugPrint("检测最新版本");
     // 获取最新版本
     const url =
-        "https://api.github.com/repos/miru-project/bt-server/releases/latest";
+        "https://api.github.com/repos/appdevelpo/bt-server/releases/latest"; //  temporary url
 
     final res = dio.get(url);
     final remoteVersion = (await res).data["tag_name"] as String;
@@ -32,7 +33,7 @@ class BTServerUtils {
     if (Platform.isAndroid) {
       final supportedAbis = androidDeviceInfo.supportedAbis;
       if (supportedAbis.contains("armeabi-v7a")) {
-        arch = "arm";
+        arch = "armv7a ";
       }
       if (supportedAbis.contains("x86_64")) {
         arch = "amd64";
@@ -46,11 +47,21 @@ class BTServerUtils {
       arch = "amd64.exe";
       platform = "windows";
     }
+    if (Platform.isLinux) {
+      platform = "linux";
+      final archetechture = await Process.run('uname', ['-m']);
+      if (archetechture.stdout.toString().contains("x86_64")) {
+        arch = "amd64";
+      }
+      if (archetechture.stdout.toString().contains("arm64")) {
+        arch = "arm64";
+      }
+    }
 
     debugPrint("下载 bt-server $remoteVersion $platform $arch");
 
     final downloadUrl =
-        "https://github.com/miru-project/bt-server/releases/download/$remoteVersion/bt-server-$remoteVersion-$platform-$arch";
+        "https://github.com/appdevelpo/bt-server/releases/download/$remoteVersion/bt-server-$remoteVersion-$platform-$arch";
 
     final savePath = MiruDirectory.getDirectory;
     await dio.download(
@@ -87,6 +98,7 @@ class BTServerUtils {
           ["&"],
           workingDirectory: savePath,
         );
+        logger.info("bt-server started");
       }
     } catch (e) {
       final error = e.toString();
