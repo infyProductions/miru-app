@@ -22,6 +22,8 @@ class BTServerUtils {
   }) async {
     debugPrint("检测最新版本");
     // 获取最新版本
+    // const url =
+    // "https://api.github.com/repos/miru-project/bt-server/releases/latest";
     const url =
         "https://api.github.com/repos/appdevelpo/bt-server/releases/latest"; //  temporary url
 
@@ -59,9 +61,10 @@ class BTServerUtils {
     }
 
     debugPrint("下载 bt-server $remoteVersion $platform $arch");
-
+    // final downloadUrl =
+    // "https://github.com/miru-project/bt-server/releases/download/$remoteVersion/bt-server-$remoteVersion-$platform-$arch";
     final downloadUrl =
-        "https://github.com/appdevelpo/bt-server/releases/download/$remoteVersion/bt-server-$remoteVersion-$platform-$arch";
+        "https://github.com/appdevelpo/bt-server/releases/download/$remoteVersion/bt-server-$remoteVersion-$platform-$arch"; // temporary url
 
     final savePath = MiruDirectory.getDirectory;
     await dio.download(

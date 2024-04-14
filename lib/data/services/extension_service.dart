@@ -32,6 +32,9 @@ class ExtensionService {
   initRuntime(Extension ext) async {
     extension = ext;
     className = extension.package.replaceAll('.', '');
+    // example: if the package name is com.example.extension the class name will be comexampleextension
+    // but if  the package name is 9anime.to the class name will be animetoRenamed
+
     if (!className.isAlphabetOnly) {
       className = "${className.replaceAll(RegExp(r'[^a-zA-z]'), '')}Renamed";
     }
@@ -151,8 +154,6 @@ class ExtensionService {
       return setting!.value ?? setting.defaultValue;
     }
 
-    runtime.onMessage('getSetting', (dynamic args) => jsGetMessage(args));
-
     jsCleanSettings(dynamic args) async {
       // debugPrint('cleanSettings: ${args[0]}');
       return DatabaseService.cleanExtensionSettings(
@@ -235,6 +236,7 @@ class ExtensionService {
       return elements;
     }
 
+    runtime.onMessage('getSetting', (dynamic args) => jsGetMessage(args));
     // 日志
     runtime.onMessage('log', (args) => jsLog(args));
     // 请求
@@ -439,6 +441,7 @@ async function stringify(callback) {
   const data = await callback();
   return typeof data === "object" ? JSON.stringify(data,0,2) : data;
 }
+
 
 
             '''
