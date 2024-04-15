@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter_js/flutter_js.dart';
 import 'package:miru_app/utils/log.dart';
 
-const DART_BRIDGE_MESSAGE_NAME = 'DART_BRIDGE_MESSAGE_NAME';
+const dartBridgeMessageName = 'DART_BRIDGE_MESSAGE_NAME';
 
 class JsBridge {
   final JavascriptRuntime jsRuntime;
@@ -17,7 +17,7 @@ class JsBridge {
     required this.jsRuntime,
     this.toEncodable,
   }) {
-    final bridgeScriptEvalResult = jsRuntime.evaluate(JS_BRIDGE_JS);
+    final bridgeScriptEvalResult = jsRuntime.evaluate(jsBridgeJs);
     if (bridgeScriptEvalResult.isError) {
       logger.info('Error eval bridge script');
     }
@@ -26,7 +26,7 @@ class JsBridge {
     if (windowEvalResult.isError) {
       logger.info('Error eval window script');
     }
-    jsRuntime.onMessage(DART_BRIDGE_MESSAGE_NAME, (message) {
+    jsRuntime.onMessage(dartBridgeMessageName, (message) {
       _onMessage(message);
     });
   }
@@ -77,10 +77,10 @@ class JsBridge {
   }
 }
 
-const JS_BRIDGE_JS = '''
+const jsBridgeJs = '''
 globalThis.DartBridge = (() => {
     let callId = 0;
-    const DART_BRIDGE_MESSAGE_NAME = '$DART_BRIDGE_MESSAGE_NAME';
+    const DART_BRIDGE_MESSAGE_NAME = '$dartBridgeMessageName';
     globalThis.onMessageFromDart = async (isRequest, callId, name, args) => {
         if (isRequest) {
             if (handlers[name]) {

@@ -22,10 +22,8 @@ class BTServerUtils {
   }) async {
     debugPrint("检测最新版本");
     // 获取最新版本
-    // const url =
-    // "https://api.github.com/repos/miru-project/bt-server/releases/latest";
     const url =
-        "https://api.github.com/repos/appdevelpo/bt-server/releases/latest"; //  temporary url
+        "https://api.github.com/repos/miru-project/bt-server/releases/latest";
 
     final res = dio.get(url);
     final remoteVersion = (await res).data["tag_name"] as String;
@@ -51,21 +49,19 @@ class BTServerUtils {
     }
     if (Platform.isLinux) {
       platform = "linux";
-      final archetechture = await Process.run('uname', ['-m']);
-      if (archetechture.stdout.toString().contains("x86_64")) {
+      final architecture = await Process.run('uname', ['-m']);
+      if (architecture.stdout.toString().contains("x86_64")) {
         arch = "amd64";
       }
-      if (archetechture.stdout.toString().contains("arm64")) {
+      if (architecture.stdout.toString().contains("arm64") ||
+          architecture.stdout.toString().contains("aarch64")) {
         arch = "arm64";
       }
     }
 
     debugPrint("下载 bt-server $remoteVersion $platform $arch");
-    // final downloadUrl =
-    // "https://github.com/miru-project/bt-server/releases/download/$remoteVersion/bt-server-$remoteVersion-$platform-$arch";
     final downloadUrl =
-        "https://github.com/appdevelpo/bt-server/releases/download/$remoteVersion/bt-server-$remoteVersion-$platform-$arch"; // temporary url
-
+        "https://github.com/miru-project/bt-server/releases/download/$remoteVersion/bt-server-$remoteVersion-$platform-$arch";
     final savePath = MiruDirectory.getDirectory;
     await dio.download(
       downloadUrl,
