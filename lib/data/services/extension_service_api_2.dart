@@ -184,7 +184,9 @@ class ExtensionServiceApi2 extends ExtensionService {
     runtime.onMessage('cleanSettings', (dynamic args) => jsCleanSettings(args));
     // xpath 选择器
     runtime.onMessage('queryXPath', (arg) => jsQueryXPath(arg));
-
+    runtime.onMessage('saveData', (args) => jsSaveData(args));
+    runtime.onMessage('getData', (args) => jsGetData(args));
+    runtime.onMessage('snackbar', (args) => jsSnackBar(args));
     if (Platform.isLinux) {
       handleDartBridge(String channelName, Function fn) {
         jsBridge.setHandler(channelName, (message) async {
@@ -346,6 +348,7 @@ var window = (global = globalThis);
 $cryptoJs
 $jsencrypt
 $md5
+
 class XPathNode {
     constructor(content, selector) {
         this.content = content;
@@ -409,6 +412,26 @@ var request = async (url, options) => {
     }
 
 }
+var rawRequest = async (url, options) => {
+    options = options || {};
+    options.headers = options.headers || {};
+    options.method = options.method || "get";
+    const message = await handlePromise("request$className", JSON.stringify([url, options, "${extension.package}"]));
+    try {
+        return JSON.parse(message);
+    } catch (e) {
+        return message;
+    }
+}
+var saveData = async (key, data) => {
+    try { await sendMessage("saveData", JSON.stringify([key, data])); return true; } catch (e) { return false; }
+}
+var snackbar = (message) => {
+    return sendMessage("snackbar", JSON.stringify([message]));
+}
+var getData = async (key) => {
+    return await sendMessage("getData", JSON.stringify([key]));
+}
 var queryXPath = (content, selector) => {
     return new XPathNode(content, selector);
 }
@@ -444,15 +467,14 @@ async function stringify(callback) {
     const data = await callback();
     return typeof data === "object" ? JSON.stringify(data, 0, 2) : data;
 }
-
     ''';
     runtime.evaluate('''
       $ext
       $extScript
       if(${Platform.isLinux}){
            DartBridge.sendMessage("cleanSettings$className",JSON.stringify([extension.settingKeys]));
-        }
-        sendMessage("cleanSettings", JSON.stringify([extension.settingKeys]));
+        }else
+        {sendMessage("cleanSettings", JSON.stringify([extension.settingKeys]))};
     ''');
   }
 
