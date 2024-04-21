@@ -101,6 +101,81 @@ class ExtensionServiceApi2 extends ExtensionService {
       }
     }
 
+    jsRawRequest(dynamic args) async {
+      _cuurentRequestUrl = args[0];
+      final headers = args[1]['headers'] ?? {};
+      if (headers['User-Agent'] == null) {
+        headers['User-Agent'] = MiruStorage.getUASetting();
+      }
+
+      final url = args[0];
+      final method = args[1]['method'] ?? 'get';
+      final requestBody = args[1]['data'];
+
+      final log = ExtensionNetworkLog(
+        extension: extension,
+        url: args[0],
+        method: method,
+        requestHeaders: headers,
+      );
+      final key = UniqueKey().toString();
+      ExtensionUtils.addNetworkLog(
+        key,
+        log,
+      );
+
+      try {
+        final res = await dio.request<String>(
+          url,
+          data: requestBody,
+          queryParameters: args[1]['queryParameters'] ?? {},
+          options: Options(
+            headers: headers,
+            method: method,
+          ),
+        );
+        log.requestHeaders = res.requestOptions.headers;
+        log.responseBody = res.data;
+        log.responseHeaders = res.headers.map.map(
+          (key, value) => MapEntry(
+            key,
+            value.join(';'),
+          ),
+        );
+        log.statusCode = res.statusCode;
+
+        ExtensionUtils.addNetworkLog(
+          key,
+          log,
+        );
+        return {
+          "data": res.data,
+          "headers": res.headers.map.map(
+            (key, value) => MapEntry(
+              key,
+              value.join(';'),
+            ),
+          )
+        };
+      } on DioException catch (e) {
+        log.url = e.requestOptions.uri.toString();
+        log.requestHeaders = e.requestOptions.headers;
+        log.responseBody = e.response?.data;
+        log.responseHeaders = e.response?.headers.map.map(
+          (key, value) => MapEntry(
+            key,
+            value.join(';'),
+          ),
+        );
+        log.statusCode = e.response?.statusCode;
+        ExtensionUtils.addNetworkLog(
+          key,
+          log,
+        );
+        rethrow;
+      }
+    }
+
     jsRegisterSetting(dynamic args) async {
       args[0]['package'] = extension.package;
 
@@ -187,6 +262,18 @@ class ExtensionServiceApi2 extends ExtensionService {
     runtime.onMessage('saveData', (args) => jsSaveData(args));
     runtime.onMessage('getData', (args) => jsGetData(args));
     runtime.onMessage('snackbar', (args) => jsSnackBar(args));
+    runtime.onMessage('rawRequest', (args) => jsRawRequest(args));
+    runtime.onMessage('listCookies', (_) async {
+      return await listCookie();
+    });
+    runtime.onMessage('setCookie', (cookie) async {
+      try {
+        await setCookie(cookie[0]);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    });
     if (Platform.isLinux) {
       handleDartBridge(String channelName, Function fn) {
         jsBridge.setHandler(channelName, (message) async {
@@ -206,6 +293,20 @@ class ExtensionServiceApi2 extends ExtensionService {
       handleDartBridge('saveData$className', jsSaveData);
       handleDartBridge('getData$className', jsGetData);
       handleDartBridge('snackbar$className', jsSnackBar);
+      handleDartBridge('rawRequest$className', jsRawRequest);
+      jsBridge.setHandler('listCookies$className', (message) async {
+        final result = await listCookie();
+        await jsBridge.sendMessage('listCookies$className', result);
+      });
+      jsBridge.setHandler('setCookie$className', (message) async {
+        try {
+          await setCookie(message);
+          await jsBridge.sendMessage('setCookie$className', true);
+        } catch (e) {
+          await jsBridge.sendMessage('setCookie$className', false);
+        }
+      });
+      // handleDartBridge('setCookie$className', setCookie);
     }
   }
 
@@ -281,12 +382,18 @@ var rawRequest = async (url, options) => {
   options = options || {};
   options.headers = options.headers || {};
   options.method = options.method || "get";
-  const message = await handlePromise("request$className", JSON.stringify([url, options, "${extension.package}"]));
+  const message = await handlePromise("rawRequest$className", JSON.stringify([url, options, "${extension.package}"]));
   try {
     return JSON.parse(message);
   } catch (e) {
     return message;
   }
+}
+var listCookies = async () => {
+  return await handlePromise("listCookies$className", "");
+}
+var setCookie = async (cookie) => {
+  return await handlePromise("setCookie$className", cookie);
 }
 var saveData = async (key, data) => {
   try { await handlePromise("saveData$className", JSON.stringify([key, data])); return true; } catch (e) { return false; }
@@ -341,6 +448,7 @@ async function stringify(callback) {
   const data = await callback();
   return typeof data === "object" ? JSON.stringify(data, 0, 2) : data;
 }
+
 
             '''
         : '''
@@ -416,13 +524,19 @@ var rawRequest = async (url, options) => {
     options = options || {};
     options.headers = options.headers || {};
     options.method = options.method || "get";
-    const message = await handlePromise("request$className", JSON.stringify([url, options, "${extension.package}"]));
+    const message = await sendMessage("rawRequest", JSON.stringify([url, options, "${extension.package}"]));
     try {
-        return JSON.parse(message);
+      return JSON.parse(message);
     } catch (e) {
-        return message;
+      return message;
     }
-}
+  }
+var listCookies = async () => {
+    return await sendMessage("listCookies", JSON.stringify([]));
+  }
+  var setCookie = async (cookie) => {
+    return await sendMessage("setCookie", JSON.stringify([cookie]));
+  }
 var saveData = async (key, data) => {
     try { await sendMessage("saveData", JSON.stringify([key, data])); return true; } catch (e) { return false; }
 }

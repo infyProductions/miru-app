@@ -646,7 +646,7 @@ async function stringify(callback) {
 
   /// 添加 cookie
   /// key=value; key=value
-  setCookie(String cookies) async {
+  Future<void> setCookie(String cookies) async {
     await MiruRequest.setCookie(cookies, extension.webSite);
   }
 
