@@ -366,46 +366,58 @@ const name = "${extension.name}";
 // 在 load 中注册的 keys
 settingKeys = [];
 
-var request = async (url, options) => {
-  options = options || {};
-  options.headers = options.headers || {};
-  const miruUrl = options.headers["Miru-Url"] || "${extension.webSite}";
-  options.method = options.method || "get";
-  const message = await handlePromise("request$className", JSON.stringify([miruUrl + url, options, "${extension.package}"]));
-  try {
-    return JSON.parse(message);
-  } catch (e) {
-    return message;
+
+
+const Miru = {
+  request: async (url, options) => {
+    options = options || {};
+    options.headers = options.headers || {};
+    const miruUrl = options.headers["Miru-Url"] || "${extension.webSite}";
+    options.method = options.method || "get";
+    const message = await handlePromise("request$className", JSON.stringify([miruUrl + url, options, "${extension.package}"]));
+    try {
+      return JSON.parse(message);
+    } catch (e) {
+      return message;
+    }
+  },
+  rawRequest: async (url, options) => {
+    options = options || {};
+    options.headers = options.headers || {};
+    options.method = options.method || "get";
+    const message = await handlePromise("rawRequest$className", JSON.stringify([url, options, "${extension.package}"]));
+    try {
+      return JSON.parse(message);
+    } catch (e) {
+      return message;
+    }
+  },
+  listCookies: async () => {
+    return await handlePromise("listCookies$className", "");
+  },
+  setCookie: async (cookie) => {
+    return await handlePromise("setCookie$className", cookie);
+  },
+  saveData: async (key, data) => {
+    try { await handlePromise("saveData$className", JSON.stringify([key, data])); return true; } catch (e) { return false; }
+  },
+  snackbar: (message) => {
+    return handlePromise("snackbar$className", JSON.stringify([message]));
+  },
+  getData: async (key) => {
+    return await handlePromise("getData$className", JSON.stringify([key]));
+  },
+  queryXPath: (content, selector) => {
+    return new XPathNode(content, selector);
+  },
+  registerSetting: async (settings) => {
+    console.log(JSON.stringify([settings]));
+    this.settingKeys.push(settings.key);
+    return await handlePromise("registerSetting$className", JSON.stringify([settings]));
+  },
+  getSetting: async (key) => {
+    return await handlePromise("getSetting$className", JSON.stringify([key]));
   }
-}
-var rawRequest = async (url, options) => {
-  options = options || {};
-  options.headers = options.headers || {};
-  options.method = options.method || "get";
-  const message = await handlePromise("rawRequest$className", JSON.stringify([url, options, "${extension.package}"]));
-  try {
-    return JSON.parse(message);
-  } catch (e) {
-    return message;
-  }
-}
-var listCookies = async () => {
-  return await handlePromise("listCookies$className", "");
-}
-var setCookie = async (cookie) => {
-  return await handlePromise("setCookie$className", cookie);
-}
-var saveData = async (key, data) => {
-  try { await handlePromise("saveData$className", JSON.stringify([key, data])); return true; } catch (e) { return false; }
-}
-var snackbar = (message) => {
-  return handlePromise("snackbar$className", JSON.stringify([message]));
-}
-var getData = async (key) => {
-  return await handlePromise("getData$className", JSON.stringify([key]));
-}
-var queryXPath = (content, selector) => {
-  return new XPathNode(content, selector);
 }
 var latest = () => {
   throw new Error("not implement latest");
@@ -425,17 +437,11 @@ var watch = () => {
 var checkUpdate = () => {
   throw new Error("not implement checkUpdate");
 }
-var getSetting = async (key) => {
-  return await handlePromise("getSetting$className", JSON.stringify([key]));
-}
-var registerSetting = async (settings) => {
-  console.log(JSON.stringify([settings]));
-  this.settingKeys.push(settings.key);
-  return await handlePromise("registerSetting$className", JSON.stringify([settings]));
-}
+
+
 var load = () => { }
 
-async function handlePromise(channelName, message) {
+const handlePromise = async (channelName, message) => {
   const waitForChange = new Promise(resolve => {
     DartBridge.setHandler(channelName, async (arg) => {
       resolve(arg);
@@ -444,7 +450,7 @@ async function handlePromise(channelName, message) {
   DartBridge.sendMessage(channelName, message);
   return await waitForChange
 }
-async function stringify(callback) {
+const stringify = async (callback) => {
   const data = await callback();
   return typeof data === "object" ? JSON.stringify(data, 0, 2) : data;
 }
@@ -504,50 +510,60 @@ const name = "${extension.name}";
 // 在 load 中注册的 keys
 settingKeys = [];
 
-var request = async (url, options) => {
-    options = options || {};
-    options.headers = options.headers || {};
-    const miruUrl = options.headers["Miru-Url"] || "${extension.webSite}";
-    options.method = options.method || "get";
-    const res = await sendMessage(
-        "request",
-        JSON.stringify([miruUrl + url, options])
-    );
-    try {
-        return JSON.parse(res);
-    } catch (e) {
-        return res;
-    }
+const Miru = {
+    request: async (url, options) => {
+        options = options || {};
+        options.headers = options.headers || {};
+        const miruUrl = options.headers["Miru-Url"] || "${extension.webSite}";
+        options.method = options.method || "get";
+        const res = await sendMessage(
+            "request",
+            JSON.stringify([miruUrl + url, options])
+        );
+        try {
+            return JSON.parse(res);
+        } catch (e) {
+            return res;
+        }
 
-}
-var rawRequest = async (url, options) => {
-    options = options || {};
-    options.headers = options.headers || {};
-    options.method = options.method || "get";
-    const message = await sendMessage("rawRequest", JSON.stringify([url, options, "${extension.package}"]));
-    try {
-      return JSON.parse(message);
-    } catch (e) {
-      return message;
+    },
+    rawRequest: async (url, options) => {
+        options = options || {};
+        options.headers = options.headers || {};
+        options.method = options.method || "get";
+        const message = await sendMessage("rawRequest", JSON.stringify([url, options, "${extension.package}"]));
+        try {
+            return JSON.parse(message);
+        } catch (e) {
+            return message;
+        }
+    },
+    listCookies: async () => {
+        return await sendMessage("listCookies", JSON.stringify([]));
+    },
+    setCookie: async (cookie) => {
+        return await sendMessage("setCookie", JSON.stringify([cookie]));
+    },
+    saveData: async (key, data) => {
+        try { await sendMessage("saveData", JSON.stringify([key, data])); return true; } catch (e) { return false; }
+    },
+    snackbar: (message) => {
+        return sendMessage("snackbar", JSON.stringify([message]));
+    },
+    getData: async (key) => {
+        return await sendMessage("getData", JSON.stringify([key]));
+    },
+    queryXPath: (content, selector) => {
+        return new XPathNode(content, selector);
+    },
+    getSetting: async (key) => {
+        return sendMessage("getSetting", JSON.stringify([key]));
+    },
+    registerSetting: async (settings) => {
+        console.log(JSON.stringify([settings]));
+        this.settingKeys.push(settings.key);
+        return sendMessage("registerSetting", JSON.stringify([settings]));
     }
-  }
-var listCookies = async () => {
-    return await sendMessage("listCookies", JSON.stringify([]));
-  }
-  var setCookie = async (cookie) => {
-    return await sendMessage("setCookie", JSON.stringify([cookie]));
-  }
-var saveData = async (key, data) => {
-    try { await sendMessage("saveData", JSON.stringify([key, data])); return true; } catch (e) { return false; }
-}
-var snackbar = (message) => {
-    return sendMessage("snackbar", JSON.stringify([message]));
-}
-var getData = async (key) => {
-    return await sendMessage("getData", JSON.stringify([key]));
-}
-var queryXPath = (content, selector) => {
-    return new XPathNode(content, selector);
 }
 var latest = () => {
     throw new Error("not implement latest");
@@ -568,16 +584,9 @@ var checkUpdate = () => {
     throw new Error("not implement checkUpdate");
 }
 var load = () => { }
-var getSetting = async (key) => {
-    return sendMessage("getSetting", JSON.stringify([key]));
-}
-var registerSetting = async (settings) => {
-    console.log(JSON.stringify([settings]));
-    this.settingKeys.push(settings.key);
-    return sendMessage("registerSetting", JSON.stringify([settings]));
-}
 
-async function stringify(callback) {
+
+const stringify = async (callback) => {
     const data = await callback();
     return typeof data === "object" ? JSON.stringify(data, 0, 2) : data;
 }
