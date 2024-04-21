@@ -19,6 +19,7 @@ Extension _$ExtensionFromJson(Map<String, dynamic> json) => Extension(
       icon: json['icon'] as String?,
       url: json['url'] as String?,
       description: json['description'] as String?,
+      api: json['api'] as int?,
     );
 
 Map<String, dynamic> _$ExtensionToJson(Extension instance) => <String, dynamic>{
@@ -34,6 +35,7 @@ Map<String, dynamic> _$ExtensionToJson(Extension instance) => <String, dynamic>{
       'icon': instance.icon,
       'url': instance.url,
       'description': instance.description,
+      'api': instance.api,
     };
 
 const _$ExtensionTypeEnumMap = {

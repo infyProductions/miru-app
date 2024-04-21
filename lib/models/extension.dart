@@ -26,6 +26,7 @@ class Extension {
     this.icon,
     this.url,
     this.description,
+    this.api,
   });
 
   final bool nsfw;
@@ -40,7 +41,7 @@ class Extension {
   String? icon;
   String? url;
   String? description;
-
+  final int? api;
   factory Extension.fromJson(Map<String, dynamic> json) =>
       _$ExtensionFromJson(json);
 
