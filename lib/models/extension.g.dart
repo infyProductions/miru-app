@@ -15,6 +15,7 @@ Extension _$ExtensionFromJson(Map<String, dynamic> json) => Extension(
       type: $enumDecode(_$ExtensionTypeEnumMap, json['type']),
       webSite: json['webSite'] as String,
       name: json['name'] as String,
+      tags: (json['tags'] as List<dynamic>).map((e) => e as String).toList(),
       nsfw: json['nsfw'] as bool? ?? false,
       icon: json['icon'] as String?,
       url: json['url'] as String?,
@@ -36,6 +37,7 @@ Map<String, dynamic> _$ExtensionToJson(Extension instance) => <String, dynamic>{
       'url': instance.url,
       'description': instance.description,
       'api': instance.api,
+      'tags': instance.tags,
     };
 
 const _$ExtensionTypeEnumMap = {

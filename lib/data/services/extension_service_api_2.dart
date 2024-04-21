@@ -1,24 +1,28 @@
-import 'dart:io';
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' as material;
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart';
 import 'package:miru_app/data/services/extension_jscore_plugin.dart';
 import 'package:miru_app/utils/log.dart';
 import 'package:miru_app/utils/miru_storage.dart';
 import 'package:miru_app/utils/request.dart';
+import 'package:miru_app/views/widgets/messenger.dart';
 import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_js/flutter_js.dart';
 import 'package:miru_app/models/index.dart';
 import 'package:miru_app/data/services/database_service.dart';
 import 'package:miru_app/utils/extension.dart';
-
 import './extension_service.dart';
 
 class ExtensionServiceApi2 extends ExtensionService {
   String _cuurentRequestUrl = '';
   static Map<dynamic, dynamic> evalMap = {};
+  late material.BuildContext currentcontext;
   @override
   void initService() {
     jsLog(dynamic args) {
@@ -125,6 +129,22 @@ class ExtensionServiceApi2 extends ExtensionService {
           extension.package, List<String>.from(args[0]));
     }
 
+    jsSnackBar(dynamic args) {
+      Future.delayed(Duration.zero, () {
+        if (currentcontext.mounted) {
+          showPlatformSnackbar(context: currentcontext, content: args[0]);
+        }
+      });
+    }
+
+    jsSaveData(dynamic args) async {
+      await MiruStorage.setExtensionData(extension.package, args[0], args[1]);
+    }
+
+    jsGetData(dynamic args) async {
+      return await MiruStorage.getExtensionData(extension.package, args[0]);
+    }
+
     jsQueryXPath(args) {
       final content = args[0];
       final selector = args[1];
@@ -181,6 +201,9 @@ class ExtensionServiceApi2 extends ExtensionService {
       handleDartBridge('queryXPath$className', jsQueryXPath);
       handleDartBridge('registerSetting$className', jsRegisterSetting);
       handleDartBridge('getSetting$className', jsGetMessage);
+      handleDartBridge('saveData$className', jsSaveData);
+      handleDartBridge('getData$className', jsGetData);
+      handleDartBridge('snackbar$className', jsSnackBar);
     }
   }
 
@@ -252,6 +275,26 @@ var request = async (url, options) => {
     return message;
   }
 }
+var rawRequest = async (url, options) => {
+  options = options || {};
+  options.headers = options.headers || {};
+  options.method = options.method || "get";
+  const message = await handlePromise("request$className", JSON.stringify([url, options, "${extension.package}"]));
+  try {
+    return JSON.parse(message);
+  } catch (e) {
+    return message;
+  }
+}
+var saveData = async (key, data) => {
+  try { await handlePromise("saveData$className", JSON.stringify([key, data])); return true; } catch (e) { return false; }
+}
+var snackbar = (message) => {
+  return handlePromise("snackbar$className", JSON.stringify([message]));
+}
+var getData = async (key) => {
+  return await handlePromise("getData$className", JSON.stringify([key]));
+}
 var queryXPath = (content, selector) => {
   return new XPathNode(content, selector);
 }
@@ -296,7 +339,6 @@ async function stringify(callback) {
   const data = await callback();
   return typeof data === "object" ? JSON.stringify(data, 0, 2) : data;
 }
-
 
             '''
         : '''
@@ -415,7 +457,9 @@ async function stringify(callback) {
   }
 
   @override
-  Future<List<ExtensionListItem>> latest(int page) async {
+  Future<List<ExtensionListItem>> latest(
+      int page, material.BuildContext context) async {
+    currentcontext = context;
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux
@@ -437,9 +481,11 @@ async function stringify(callback) {
   @override
   Future<List<ExtensionListItem>> search(
     String kw,
-    int page, {
+    int page,
+    material.BuildContext context, {
     Map<String, List<String>>? filter,
   }) async {
+    currentcontext = context;
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux
@@ -485,7 +531,9 @@ async function stringify(callback) {
   }
 
   @override
-  Future<ExtensionDetail> detail(String url) async {
+  Future<ExtensionDetail> detail(
+      String url, material.BuildContext context) async {
+    currentcontext = context;
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux
@@ -500,7 +548,8 @@ async function stringify(callback) {
   }
 
   @override
-  Future<Object?> watch(String url) async {
+  Future<Object?> watch(String url, material.BuildContext context) async {
+    currentcontext = context;
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux

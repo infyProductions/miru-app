@@ -19,6 +19,7 @@ class ExtensionCard extends StatefulWidget {
     required this.lang,
     required this.nsfw,
     required this.type,
+    required this.tags,
   });
   final String? icon;
   final String name;
@@ -27,7 +28,7 @@ class ExtensionCard extends StatefulWidget {
   final String lang;
   final ExtensionType type;
   final bool nsfw;
-
+  final List<String> tags;
   @override
   State<ExtensionCard> createState() => _ExtensionCardState();
 }

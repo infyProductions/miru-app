@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' as material;
 import 'package:flutter/services.dart';
 import 'package:flutter_js/extensions/fetch.dart';
 import 'package:get/get.dart';
@@ -48,7 +49,13 @@ class ExtensionService {
     }
     runtime.enableFetch();
     runtime.enableHandlePromises();
+    className = extension.package.replaceAll('.', '');
+    // example: if the package name is com.example.extension the class name will be comexampleextension
+    // but if  the package name is 9anime.to the class name will be animetoRenamed
 
+    if (!className.isAlphabetOnly) {
+      className = "${className.replaceAll(RegExp(r'[^a-zA-z]'), '')}Renamed";
+    }
     initService();
     // 初始化运行扩展
     await initRunExtension(content);
@@ -254,13 +261,7 @@ class ExtensionService {
         'querySelectorAll', (dynamic args) => jsQuerySelectorAll(args));
     // css 选择器
     runtime.onMessage('querySelector', (arg) => jsQuerySelector(arg));
-    className = extension.package.replaceAll('.', '');
-    // example: if the package name is com.example.extension the class name will be comexampleextension
-    // but if  the package name is 9anime.to the class name will be animetoRenamed
 
-    if (!className.isAlphabetOnly) {
-      className = "${className.replaceAll(RegExp(r'[^a-zA-z]'), '')}Renamed";
-    }
     if (Platform.isLinux) {
       handleDartBridge(String channelName, Function fn) {
         jsBridge.setHandler(channelName, (message) async {
@@ -675,7 +676,8 @@ async function stringify(callback) {
     };
   }
 
-  Future<List<ExtensionListItem>> latest(int page) async {
+  Future<List<ExtensionListItem>> latest(
+      int page, material.BuildContext context) async {
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux
@@ -696,7 +698,8 @@ async function stringify(callback) {
 
   Future<List<ExtensionListItem>> search(
     String kw,
-    int page, {
+    int page,
+    material.BuildContext context, {
     Map<String, List<String>>? filter,
   }) async {
     return runExtension(() async {
@@ -743,7 +746,8 @@ async function stringify(callback) {
     });
   }
 
-  Future<ExtensionDetail> detail(String url) async {
+  Future<ExtensionDetail> detail(
+      String url, material.BuildContext context) async {
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux
@@ -757,7 +761,7 @@ async function stringify(callback) {
     });
   }
 
-  Future<Object?> watch(String url) async {
+  Future<Object?> watch(String url, material.BuildContext context) async {
     return runExtension(() async {
       final jsResult = await runtime.handlePromise(
         await runtime.evaluateAsync(Platform.isLinux

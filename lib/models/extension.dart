@@ -22,6 +22,7 @@ class Extension {
     required this.type,
     required this.webSite,
     required this.name,
+    required this.tags,
     this.nsfw = false,
     this.icon,
     this.url,
@@ -38,10 +39,11 @@ class Extension {
   final ExtensionType type;
   final String webSite;
   final String name;
-  String? icon;
-  String? url;
-  String? description;
+  final String? icon;
+  final String? url;
+  final String? description;
   final int? api;
+  final List<String> tags;
   factory Extension.fromJson(Map<String, dynamic> json) =>
       _$ExtensionFromJson(json);
 

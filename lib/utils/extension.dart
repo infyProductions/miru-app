@@ -257,7 +257,8 @@ class ExtensionUtils {
       result[match.group(1)!] = match.group(2);
     }
     result['nsfw'] = result['nsfw'] == "true";
-    result['api'] = int.tryParse(result['api'] ?? "1");
+    result['api'] = int.parse(result['api'] ?? "1");
+    result['tags'] = (result['tags'] ?? '').split(',');
     return Extension.fromJson(result);
   }
 }
