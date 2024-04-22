@@ -118,6 +118,7 @@ class _ExtensionRepoPageState extends State<ExtensionRepoPage> {
             lang: e['lang'],
             nsfw: e['nsfw'] == 'true',
             tags: e['tags'] == null ? [] : e['tags'].toLowerCase().split(','),
+            status: (e['status'] ?? '1') == '1',
             type: ExtensionType.values.firstWhere(
               (element) => element.toString() == 'ExtensionType.${e['type']}',
             )))

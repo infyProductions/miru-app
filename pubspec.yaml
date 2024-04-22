@@ -63,6 +63,8 @@ dependencies:
   screen_brightness: ^0.2.2+1
   auto_orientation: ^2.3.1
   dlna_dart: ^0.0.8
+  extended_image_library: ^4.0.1
+  image: ^4.1.7
 
 dev_dependencies:
   flutter_test:
