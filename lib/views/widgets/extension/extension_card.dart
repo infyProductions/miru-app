@@ -20,7 +20,6 @@ class ExtensionCard extends StatefulWidget {
     required this.nsfw,
     required this.type,
     required this.tags,
-    required this.status,
   });
   final String? icon;
   final String name;
@@ -29,7 +28,6 @@ class ExtensionCard extends StatefulWidget {
   final String lang;
   final ExtensionType type;
   final bool nsfw;
-  final bool status;
   final List<String> tags;
   @override
   State<ExtensionCard> createState() => _ExtensionCardState();
@@ -161,113 +159,100 @@ class _ExtensionCardState extends State<ExtensionCard> {
   Widget _buildDesktop(BuildContext context) {
     return fluent.Card(
       padding: const EdgeInsets.all(12),
-      child: Stack(children: [
-        if (!widget.status)
-          Align(
-            alignment: Alignment.topRight,
-            child: Text("status-down".i18n,
-                style: const TextStyle(color: Colors.red)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: CacheNetWorkImagePic(
+              icon,
+              width: 64,
+              height: 64,
+              fit: BoxFit.contain,
+              fallback: const Icon(fluent.FluentIcons.add_in, size: 32),
+            ),
           ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: CacheNetWorkImagePic(
-                icon,
-                width: 64,
-                height: 64,
-                fit: BoxFit.contain,
-                fallback: const Icon(fluent.FluentIcons.add_in, size: 32),
-              ),
+          const SizedBox(height: 8),
+          Text(widget.name, style: const TextStyle(fontSize: 17)),
+          DefaultTextStyle(
+            style: TextStyle(
+              fontSize: 12,
+              color: fluent.FluentTheme.of(context).inactiveColor,
             ),
-            const SizedBox(height: 8),
-            Text(widget.name, style: const TextStyle(fontSize: 17)),
-            DefaultTextStyle(
-              style: TextStyle(
-                fontSize: 12,
-                color: fluent.FluentTheme.of(context).inactiveColor,
-              ),
-              child: Row(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(ExtensionUtils.typeToString(widget.type)),
-                  ),
-                  Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Text(
-                        widget.tags.join(', '),
-                      )),
-                  if (widget.nsfw)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: Text(
-                        '18+',
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Row(
+            child: Row(
               children: [
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: Text(
-                    widget.version,
-                    style: const TextStyle(fontSize: 12),
-                  ),
+                  child: Text(ExtensionUtils.typeToString(widget.type)),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Text(widget.lang),
                 ),
-                const Spacer(),
-                if (isLoading)
-                  const SizedBox(
-                    width: 25,
-                    height: 25,
-                    child: ProgressRing(),
-                  )
-                else if (isInstall) ...[
-                  if (hasUpgrade)
-                    fluent.FilledButton(
-                      child: Text('extension-repo.upgrade'.i18n),
-                      onPressed: () async {
-                        await _install();
-                        setState(() {});
-                      },
+                if (widget.nsfw)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Text(
+                      '18+',
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                      ),
                     ),
-                  const SizedBox(width: 8),
-                  if (isInstall)
-                    fluent.FilledButton(
-                      child: Text('common.uninstall'.i18n),
-                      onPressed: () async {
-                        await ExtensionUtils.uninstall(widget.package);
-                        setState(() {
-                          isInstall = false;
-                        });
-                      },
-                    )
-                ] else
-                  fluent.FilledButton(
-                    onPressed: () async {
-                      await _install();
-                    },
-                    child: Text('common.install'.i18n),
-                  )
+                  ),
               ],
             ),
-          ],
-        )
-      ]),
+          ),
+          Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  widget.version,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              const Spacer(),
+              if (isLoading)
+                const SizedBox(
+                  width: 25,
+                  height: 25,
+                  child: ProgressRing(),
+                )
+              else if (isInstall) ...[
+                if (hasUpgrade)
+                  fluent.FilledButton(
+                    child: Text('extension-repo.upgrade'.i18n),
+                    onPressed: () async {
+                      await _install();
+                      setState(() {});
+                    },
+                  ),
+                const SizedBox(width: 8),
+                if (isInstall)
+                  fluent.FilledButton(
+                    child: Text('common.uninstall'.i18n),
+                    onPressed: () async {
+                      await ExtensionUtils.uninstall(widget.package);
+                      setState(() {
+                        isInstall = false;
+                      });
+                    },
+                  )
+              ] else
+                fluent.FilledButton(
+                  onPressed: () async {
+                    await _install();
+                  },
+                  child: Text('common.install'.i18n),
+                )
+            ],
+          ),
+        ],
+      ),
     );
   }
 
