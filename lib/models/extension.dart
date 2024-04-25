@@ -189,11 +189,12 @@ class ExtensionMangaWatch {
   ExtensionMangaWatch({
     required this.urls,
     this.headers,
+    this.reconstructKey,
   });
 
   final List<String> urls;
   late Map<String, String>? headers;
-
+  late List<List<List<int>>>? reconstructKey;
   factory ExtensionMangaWatch.fromJson(Map<String, dynamic> json) =>
       _$ExtensionMangaWatchFromJson(json);
 

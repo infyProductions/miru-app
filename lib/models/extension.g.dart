@@ -188,6 +188,11 @@ ExtensionMangaWatch _$ExtensionMangaWatchFromJson(Map<String, dynamic> json) =>
       headers: (json['headers'] as Map<String, dynamic>?)?.map(
         (k, e) => MapEntry(k, e as String),
       ),
+      reconstructKey: (json['reconstructKey'] as List<dynamic>?)
+          ?.map((e) => (e as List<dynamic>)
+              .map((e) => (e as List<dynamic>).map((e) => e as int).toList())
+              .toList())
+          .toList(),
     );
 
 Map<String, dynamic> _$ExtensionMangaWatchToJson(
@@ -195,6 +200,7 @@ Map<String, dynamic> _$ExtensionMangaWatchToJson(
     <String, dynamic>{
       'urls': instance.urls,
       'headers': instance.headers,
+      'reconstructKey': instance.reconstructKey,
     };
 
 ExtensionFikushonWatch _$ExtensionFikushonWatchFromJson(
