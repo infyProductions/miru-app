@@ -44,7 +44,7 @@ class ExtensionServiceApi2 extends ExtensionService {
       final url = args[0];
       final method = args[1]['method'] ?? 'get';
       final requestBody = args[1]['data'];
-
+      final useByteToDecode = args[3] ?? false;
       final log = ExtensionNetworkLog(
         extension: extension,
         url: args[0],
@@ -58,15 +58,19 @@ class ExtensionServiceApi2 extends ExtensionService {
       );
 
       try {
-        final res = await dio.request<String>(
+        final res = await dio.request(
           url,
           data: requestBody,
           queryParameters: args[1]['queryParameters'] ?? {},
           options: Options(
+            responseType: useByteToDecode ? ResponseType.bytes : null,
             headers: headers,
             method: method,
           ),
         );
+        if (useByteToDecode) {
+          res.data = utf8.decode(res.data);
+        } else {}
         log.requestHeaders = res.requestOptions.headers;
         log.responseBody = res.data;
         log.responseHeaders = res.headers.map.map(
@@ -319,9 +323,6 @@ class ExtensionServiceApi2 extends ExtensionService {
     runtime.evaluate(dom);
     final ext = Platform.isLinux
         ? '''
-$cryptoJs
-$jsencrypt
-$md5
 class XPathNode {
   constructor(content, selector) {
     this.content = content;
@@ -374,7 +375,9 @@ const Miru = {
     options.headers = options.headers || {};
     const miruUrl = options.headers["Miru-Url"] || "${extension.webSite}";
     options.method = options.method || "get";
-    const message = await handlePromise("request$className", JSON.stringify([miruUrl + url, options, "${extension.package}"]));
+    // 確定是否使用 responseType.byte 來解碼
+    const useByteToDecode = options.useByteToDecode|| false;
+    const message = await handlePromise("request$className", JSON.stringify([miruUrl + url, options, "${extension.package}", useByteToDecode]));
     try {
       return JSON.parse(message);
     } catch (e) {
@@ -455,8 +458,7 @@ const stringify = async (callback) => {
   return typeof data === "object" ? JSON.stringify(data, 0, 2) : data;
 }
 
-
-            '''
+'''
         : '''
 var window = (global = globalThis);
 $cryptoJs
@@ -531,7 +533,9 @@ const Miru = {
         options = options || {};
         options.headers = options.headers || {};
         options.method = options.method || "get";
-        const message = await sendMessage("rawRequest", JSON.stringify([url, options, "${extension.package}"]));
+         // 確定是否使用 responseType.byte 來解碼
+        const useByteToDecode = options.useByteToDecode || false;
+        const message = await sendMessage("rawRequest", JSON.stringify([url, options, "${extension.package}",useByteToDecode]));
         try {
             return JSON.parse(message);
         } catch (e) {
