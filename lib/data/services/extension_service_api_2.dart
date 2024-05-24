@@ -11,7 +11,6 @@ import 'package:miru_app/utils/request.dart';
 import 'package:miru_app/views/widgets/messenger.dart';
 import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';
 import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_js/flutter_js.dart';
 import 'package:miru_app/models/index.dart';
@@ -44,7 +43,7 @@ class ExtensionServiceApi2 extends ExtensionService {
       final url = args[0];
       final method = args[1]['method'] ?? 'get';
       final requestBody = args[1]['data'];
-      final useByteToDecode = args[3] ?? false;
+      final useByteToDecode = args[2] ?? false;
       final log = ExtensionNetworkLog(
         extension: extension,
         url: args[0],
@@ -224,6 +223,29 @@ class ExtensionServiceApi2 extends ExtensionService {
       return await MiruStorage.getExtensionData(extension.package, args[0]);
     }
 
+    jsConvert(dynamic args) async {
+      final String data = args[0];
+      final String from = args[1].toLowerCase();
+      final String to = args[2].toLowerCase();
+      try {
+        const typeMap = <String, Codec>{
+          'utf8': utf8,
+          'base64': base64,
+          'latin1': latin1,
+          'ascii': ascii,
+        };
+        List<int> byte = typeMap[from]!.encode(data);
+        String result = to == "utf8"
+            ? utf8.decode(byte, allowMalformed: true)
+            : typeMap[to]!.decode(byte);
+        logger.info(result);
+        return result;
+      } catch (e) {
+        return e.toString();
+      }
+      ;
+    }
+
     jsQueryXPath(args) {
       final content = args[0];
       final selector = args[1];
@@ -278,6 +300,8 @@ class ExtensionServiceApi2 extends ExtensionService {
         return false;
       }
     });
+    // 数据转换 utf8 base64 ascii latin1
+    runtime.onMessage('convert', (args) => jsConvert(args));
     if (Platform.isLinux) {
       handleDartBridge(String channelName, Function fn) {
         jsBridge.setHandler(channelName, (message) async {
@@ -298,6 +322,7 @@ class ExtensionServiceApi2 extends ExtensionService {
       handleDartBridge('getData$className', jsGetData);
       handleDartBridge('snackbar$className', jsSnackBar);
       handleDartBridge('rawRequest$className', jsRawRequest);
+      handleDartBridge('convert$className', jsConvert);
       jsBridge.setHandler('listCookies$className', (message) async {
         final result = await listCookie();
         await jsBridge.sendMessage('listCookies$className', result);
@@ -377,7 +402,7 @@ const Miru = {
     options.method = options.method || "get";
     // 確定是否使用 responseType.byte 來解碼
     const useByteToDecode = options.useByteToDecode|| false;
-    const message = await handlePromise("request$className", JSON.stringify([miruUrl + url, options, "${extension.package}", useByteToDecode]));
+    const message = await handlePromise("request$className", JSON.stringify([miruUrl + url, options, useByteToDecode]));
     try {
       return JSON.parse(message);
     } catch (e) {
@@ -420,6 +445,9 @@ const Miru = {
   },
   getSetting: async (key) => {
     return await handlePromise("getSetting$className", JSON.stringify([key]));
+  },
+  convert:async (data,from,to)=>{
+    return await handlePromise("convert$className",JSON.stringify([JSON.stringify(data),from,to]));
   }
 }
 var latest = () => {
@@ -517,10 +545,11 @@ const Miru = {
         options = options || {};
         options.headers = options.headers || {};
         const miruUrl = options.headers["Miru-Url"] || "${extension.webSite}";
+        const useByteToDecode = options.useByteToDecode|| false;
         options.method = options.method || "get";
         const res = await sendMessage(
             "request",
-            JSON.stringify([miruUrl + url, options])
+            JSON.stringify([miruUrl + url, options,useByteToDecode])
         );
         try {
             return JSON.parse(res);
@@ -535,7 +564,7 @@ const Miru = {
         options.method = options.method || "get";
          // 確定是否使用 responseType.byte 來解碼
         const useByteToDecode = options.useByteToDecode || false;
-        const message = await sendMessage("rawRequest", JSON.stringify([url, options, "${extension.package}",useByteToDecode]));
+        const message = await sendMessage("rawRequest", JSON.stringify([url, options,useByteToDecode]));
         try {
             return JSON.parse(message);
         } catch (e) {
@@ -567,6 +596,9 @@ const Miru = {
         console.log(JSON.stringify([settings]));
         this.settingKeys.push(settings.key);
         return sendMessage("registerSetting", JSON.stringify([settings]));
+    },
+    convert: async (data, from, to) => {
+        return await sendMessage("convert", JSON.stringify([JSON.stringify(data), from, to]));
     }
 }
 var latest = () => {
