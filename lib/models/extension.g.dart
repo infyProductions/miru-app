@@ -188,11 +188,7 @@ ExtensionMangaWatch _$ExtensionMangaWatchFromJson(Map<String, dynamic> json) =>
       headers: (json['headers'] as Map<String, dynamic>?)?.map(
         (k, e) => MapEntry(k, e as String),
       ),
-      reconstructKey: (json['reconstructKey'] as List<dynamic>?)
-          ?.map((e) => (e as List<dynamic>)
-              .map((e) => (e as List<dynamic>).map((e) => e as int).toList())
-              .toList())
-          .toList(),
+      needReconstruct: json['needReconstruct'] as bool?,
     );
 
 Map<String, dynamic> _$ExtensionMangaWatchToJson(
@@ -200,7 +196,7 @@ Map<String, dynamic> _$ExtensionMangaWatchToJson(
     <String, dynamic>{
       'urls': instance.urls,
       'headers': instance.headers,
-      'reconstructKey': instance.reconstructKey,
+      'needReconstruct': instance.needReconstruct,
     };
 
 ExtensionFikushonWatch _$ExtensionFikushonWatchFromJson(
@@ -263,4 +259,30 @@ Map<String, dynamic> _$ExtensionNetworkLogToJson(
       'url': instance.url,
       'method': instance.method,
       'statusCode': instance.statusCode,
+    };
+
+ReconstructPicVertex _$ReconstructPicVertexFromJson(
+        Map<String, dynamic> json) =>
+    ReconstructPicVertex(
+      sx1: (json['sx1'] as num).toDouble(),
+      sy1: (json['sy1'] as num).toDouble(),
+      sx2: (json['sx2'] as num).toDouble(),
+      sy2: (json['sy2'] as num).toDouble(),
+      dx1: (json['dx1'] as num).toDouble(),
+      dy1: (json['dy1'] as num).toDouble(),
+      dx2: (json['dx2'] as num).toDouble(),
+      dy2: (json['dy2'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$ReconstructPicVertexToJson(
+        ReconstructPicVertex instance) =>
+    <String, dynamic>{
+      'sx1': instance.sx1,
+      'sy1': instance.sy1,
+      'sx2': instance.sx2,
+      'sy2': instance.sy2,
+      'dx1': instance.dx1,
+      'dy1': instance.dy1,
+      'dx2': instance.dx2,
+      'dy2': instance.dy2,
     };

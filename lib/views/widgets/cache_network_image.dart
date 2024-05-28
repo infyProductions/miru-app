@@ -1,13 +1,21 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:flutter/material.dart';
+import 'dart:isolate';
+import 'package:image/image.dart' as img;
 import 'package:get/get.dart';
-// import 'package:image/image.dart' as img;
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:miru_app/data/services/extension_service.dart';
+import 'package:miru_app/data/services/extension_service_api_2.dart';
+import 'package:miru_app/models/extension.dart';
+import 'dart:ui' as ui;
 import 'package:miru_app/utils/i18n.dart';
 import 'package:miru_app/utils/request.dart';
 import 'package:miru_app/views/widgets/messenger.dart';
@@ -24,7 +32,9 @@ class CacheNetWorkImagePic extends StatelessWidget {
       this.placeholder,
       this.canFullScreen = false,
       this.mode = ExtendedImageMode.none,
-      this.reconstructKey});
+      this.runtime,
+      this.imageIndex,
+      this.needReconstruct = false});
   final String url;
   final BoxFit fit;
   final double? width;
@@ -34,10 +44,14 @@ class CacheNetWorkImagePic extends StatelessWidget {
   final bool canFullScreen;
   final Widget? placeholder;
   final ExtendedImageMode mode;
-  final List<List<int>>? reconstructKey;
-  static final imageCache = <String, Widget>{};
+  final int? imageIndex;
+  final bool needReconstruct;
+  static final _imageCache = <String, Uint8List>{};
+  static final List<String> isProcessing = [];
+  final ExtensionService? runtime;
+
   static void clearCache() {
-    imageCache.clear();
+    _imageCache.clear();
   }
 
   _errorBuild() {
@@ -47,130 +61,179 @@ class CacheNetWorkImagePic extends StatelessWidget {
     return const Center(child: Icon(fluent.FluentIcons.error));
   }
 
-  //save return reconstructed image
-  //Future<Image> getPic(url) async {
-  //   try {
-  //     final res = await dio.get(url,
-  //         options: Options(headers: headers, responseType: ResponseType.bytes));
-  //     final image = img.decodeImage(res.data);
-
-  //     if (image != null) {
-  //       logger.info(image.width, image.height);
-
-  //       // Calculate the size of each slice
-  //       int sliceWidth = image.width ~/ 3;
-  //       int sliceHeight = image.height ~/ 3;
-
-  //       // Create a 3x3 grid of slices
-  //       List<img.Image> imgslices = [];
-  //       for (int y = 0; y < 3; y++) {
-  //         for (int x = 0; x < 3; x++) {
-  //           img.Image slice = img.copyCrop(image,
-  //               x: x * sliceWidth,
-  //               y: y * sliceHeight,
-  //               width: sliceWidth,
-  //               height: sliceHeight);
-  //           imgslices.add(slice);
-  //         }
-  //       }
-  //       final indexList = [1, 0, 2, 3, 4, 5, 6, 7, 8];
-  //       List<img.Image> slices = List<img.Image>.generate(
-  //           indexList.length, (i) => imgslices[indexList[i]]);
-
-  //       // Recreate the image from the shuffled slices
-  //       img.Image newImage =
-  //           img.Image(width: image.width, height: image.height);
-  //       for (int y = 0; y < 3; y++) {
-  //         for (int x = 0; x < 3; x++) {
-  //           img.compositeImage(newImage, slices[y * 3 + x],
-  //               dstX: x * sliceWidth, dstY: y * sliceHeight);
-  //         }
-  //       }
-
-  //       // Convert the new image to a byte array
-  //       Uint8List newImageData = img.encodePng(newImage);
-
-  //       // Return the new image as an ExtendedImage
-  //       return Image.memory(newImageData);
-  //     }
-  //     return _errorBuild();
-  //   } catch (e) {
-  //     return _errorBuild();
-  //   }
+  // Future<Widget> processImage(String url) async {
+  //   final completer = Completer<Uint8List>();
+  //   final ImageStream stream =
+  //       ExtendedNetworkImageProvider(cache: true, url, headers: headers)
+  //           .resolve(ImageConfiguration.empty);
+  //   final listener = ImageStreamListener((ImageInfo info, bool _) async {
+  //     final out = await decodeImage(info);
+  //     return completer.complete(out);
+  //     // final reconstructList = await (runtime as ExtensionServiceApi2)
+  //     //     .recompseImage(info.image.width, info.image.height, imageIndex!);
+  //     // // 有線條
+  //     // List<Rect> srcRect = [];
+  //     // List<Rect> dstRect = [];
+  //     // for (int i = 0; i < reconstructList.length; i++) {
+  //     //   final element = reconstructList[i];
+  //     //   srcRect.add(Rect.fromPoints(Offset(element.sx1, element.sy1),
+  //     //       Offset(element.sx2, element.sy2)));
+  //     //   dstRect.add(Rect.fromPoints(Offset(element.dx1, element.dy1 - i),
+  //     //       Offset(element.dx2, element.dy2 - i)));
+  //     //   // logger.info(element);
+  //     // }
+  //     // logger.info(reconstructList);
+  //     // logger.info(info.image.width, info.image.height);
+  //     // return completer.complete(Container(
+  //     //     decoration: BoxDecoration(
+  //     //         border: Border.all(color: Colors.green, width: 2)),
+  //     //     width: info.image.width.toDouble(),
+  //     //     height: info.image.height.toDouble(),
+  //     //     child: CustomPaint(
+  //     //       painter: ImagePainter(info.image, srcRect, dstRect),
+  //     //     )));
+  //   });
+  //   stream.addListener(listener);
+  //   return completer.future;
   // }
-
-  Future<ImageInfo> _getImageSize(String url) async {
-    final Completer<ImageInfo> completer = Completer();
-    final ImageStream stream =
-        ExtendedNetworkImageProvider(cache: true, url, headers: headers)
-            .resolve(ImageConfiguration.empty);
-    final listener = ImageStreamListener((ImageInfo info, bool _) {
-      if (!completer.isCompleted) {
-        completer.complete(info);
-      }
-    });
-
-    stream.addListener(listener);
-    return completer.future;
-  }
 
   @override
   Widget build(BuildContext context) {
-    if (reconstructKey != null) {
-      //image cache for reconstruct image
-      if (imageCache.containsKey(url)) {
-        return imageCache[url]!;
-      }
-      return FutureBuilder(
-          future: _getImageSize(url),
-          builder: (contex, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done) {
-              if (snapshot.hasData) {
-                final image = snapshot.data!.image;
-                final double width = image.width.toDouble();
-                final double height = image.height.toDouble();
-                final widthSegment = width / reconstructKey![0].length;
-                final heightSegment = height / reconstructKey!.length;
-                final reconstructImage = List<Widget>.filled(
-                    reconstructKey!.length * reconstructKey![0].length,
-                    Container());
-                final expandedList =
-                    reconstructKey!.expand((element) => element).toList();
-                // logger.info(expandedList);
-                for (int i = 0; i < expandedList.length; i++) {
-                  final x = i % reconstructKey![0].length;
-                  final y = i ~/ reconstructKey![0].length;
-                  // logger.info([i, x, y]);
-                  final targetIndex = expandedList.indexOf(i);
-                  final targetX = targetIndex % reconstructKey![0].length;
-                  final targetY = targetIndex ~/ reconstructKey![0].length;
+    late final int imgHeight;
+    late final int imgWidth;
+    final cacheManager = DefaultCacheManager();
+    if (_imageCache.containsKey(url)) {
+      final imgData = _imageCache[url];
+      return ExtendedImage.memory(imgData!);
+    }
+    Future<Uint8List?> imageIsolate(String url) async {
+      final stream = ExtendedNetworkImageProvider(url, headers: headers)
+          .resolve(ImageConfiguration.empty);
+      final completer = Completer<Uint8List?>();
+      final listener = ImageStreamListener((ImageInfo info, bool _) async {
+        final imgRaw =
+            await info.image.toByteData(format: ui.ImageByteFormat.png);
+        final imgData = imgRaw!.buffer.asUint8List();
+        imgHeight = info.image.height;
+        imgWidth = info.image.width;
 
-                  reconstructImage[i] = Transform.translate(
-                    offset: Offset((targetX - x) * widthSegment,
-                        (targetY - y) * heightSegment),
-                    child: (RepaintBoundary(
-                        child: ClipRect(
-                      clipBehavior: Clip.hardEdge,
-                      clipper: ImageClipper(
-                          pointa: Offset(x * widthSegment, y * heightSegment),
-                          pointb: Offset(
-                              (x + 1) * widthSegment, (y + 1) * heightSegment)),
-                      child: RawImage(image: image),
-                    ))),
-                  );
-                }
-                final img = FittedBox(
-                  fit: fit,
-                  child: Stack(
-                    children: reconstructImage,
-                  ),
-                );
-                imageCache[url] = img;
-                return img;
-              }
-            }
-            return placeholder ?? const SizedBox();
+        if (isProcessing.contains(url)) {
+          return completer.complete();
+        }
+        final fromCache = await cacheManager.getFileFromCache(url);
+        if (fromCache != null) {
+          final imgData = await fromCache.file.readAsBytes();
+          _imageCache[url] = imgData;
+          return completer.complete(imgData);
+        }
+        final reconstructList = await (runtime as ExtensionServiceApi2)
+            .recompseImage(imgWidth, imgHeight, imageIndex!);
+
+        final List<Map<String, double>> isolateList = [];
+        for (int i = 0; i < reconstructList.length; i++) {
+          final element = reconstructList[i];
+          isolateList.add({
+            'sx1': element.sx1,
+            'sy1': element.sy1,
+            'sx2': element.sx2,
+            'sy2': element.sy2,
+            'dx1': element.dx1,
+            'dy1': element.dy1,
+            'dx2': element.dx2,
+            'dy2': element.dy2,
           });
+        }
+        final receivePort = ReceivePort();
+        final arg = <String, dynamic>{
+          'img': imgData,
+          'reconstructList': isolateList,
+          'width': imgWidth,
+          'height': imgHeight,
+          'sendPort': receivePort.sendPort,
+        };
+        isProcessing.add(url);
+        //在isolates中處理圖片，不然ui會卡
+        final isolate = await Isolate.spawn((arg) async {
+          final List<Map<String, double>> reconstructList =
+              arg['reconstructList'];
+          final decodeImage = img.decodePng(arg['img'])!;
+          final imgWidth = arg['width'];
+          final imgHeight = arg['height'];
+          final sendPort = arg['sendPort'];
+
+          img.Image newImage = img.Image(width: imgWidth, height: imgHeight);
+
+          for (int i = 0; i < reconstructList.length; i++) {
+            final element = ReconstructPicVertex.fromJson(reconstructList[i]);
+            final range = decodeImage.getRange(
+                element.sx1.toInt(),
+                element.sy1.toInt(),
+                (element.sx2 - element.sx1).toInt(),
+                (element.sy2 - element.sy1).toInt());
+            final targetRange = newImage.getRange(
+                element.dx1.toInt(),
+                element.dy1.toInt(),
+                (element.dx2 - element.dx1).toInt(),
+                (element.dy2 - element.dy1).toInt());
+            while (range.moveNext() && targetRange.moveNext()) {
+              targetRange.current.r = range.current.r;
+              targetRange.current.g = range.current.g;
+              targetRange.current.b = range.current.b;
+              targetRange.current.a = range.current.a;
+            }
+          }
+          sendPort.send(img.encodePng(newImage));
+        }, arg);
+        final Uint8List out = await receivePort.first;
+        isolate.kill();
+        isProcessing.remove(url);
+        _imageCache[url] = out;
+        cacheManager.putFile(url, out);
+        completer.complete(out);
+      });
+      stream.addListener(listener);
+
+      return completer.future;
+    }
+
+    if (needReconstruct) {
+      //image cache for reconstruct image
+
+      return LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraint) =>
+              FutureBuilder(
+                  future: imageIsolate(url),
+                  builder: (contex, snapshot) {
+                    if ((snapshot.connectionState == ConnectionState.done) &&
+                        snapshot.hasData) {
+                      // final image = ExtendedMemoryImageProvider(snapshot.data!,
+                      //     cacheRawData: true);
+                      if (snapshot.data == null) {
+                        return SizedBox(
+                          width: imgWidth.toDouble(),
+                          height: imgHeight.toDouble(),
+                          child: const CircularProgressIndicator(),
+                        );
+                      }
+                      final img = FittedBox(
+                        fit: fit,
+                        child: ExtendedImage.memory(
+                          width: imgWidth.toDouble(),
+                          height: imgHeight.toDouble(),
+                          snapshot.data!,
+                          enableMemoryCache: true,
+                          imageCacheName: url,
+                        ),
+                      );
+                      return img;
+                    }
+
+                    return placeholder ??
+                        SizedBox(
+                          width: constraint.maxWidth,
+                          height: constraint.maxHeight,
+                        );
+                  }));
     }
     final image = ExtendedImage.network(
       url,
@@ -389,14 +452,27 @@ class _ThumnailPageState extends State<_ThumnailPage> {
     );
   }
 }
+// 在前端重建圖片(效果不好)
+// class ImagePainter extends CustomPainter {
+//   final ui.Image image;
+//   final List<Rect> srcRects;
+//   final List<Rect> dstRects;
 
-class ImageClipper extends CustomClipper<Rect> {
-  const ImageClipper({Key? key, required this.pointa, required this.pointb});
-  final Offset pointa;
-  final Offset pointb;
-  @override
-  Rect getClip(Size size) => Rect.fromPoints(pointa, pointb);
+//   ImagePainter(this.image, this.srcRects, this.dstRects);
 
-  @override
-  bool shouldReclip(CustomClipper<Rect> oldClipper) => false;
-}
+//   @override
+//   void paint(Canvas canvas, Size size) {
+//     size = Size(image.width.toDouble(), image.height.toDouble());
+//     for (int i = 0; i < srcRects.length; i++) {
+//       canvas.drawImageRect(
+//         image,
+//         srcRects[i],
+//         dstRects[i],
+//         Paint(),
+//       );
+//     }
+//   }
+
+//   @override
+//   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+// }

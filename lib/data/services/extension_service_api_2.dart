@@ -69,7 +69,7 @@ class ExtensionServiceApi2 extends ExtensionService {
         );
         if (useByteToDecode) {
           res.data = utf8.decode(res.data);
-        } else {}
+        }
         log.requestHeaders = res.requestOptions.headers;
         log.responseBody = res.data;
         log.responseHeaders = res.headers.map.map(
@@ -238,12 +238,10 @@ class ExtensionServiceApi2 extends ExtensionService {
         String result = to == "utf8"
             ? utf8.decode(byte, allowMalformed: true)
             : typeMap[to]!.decode(byte);
-        logger.info(result);
         return result;
       } catch (e) {
         return e.toString();
       }
-      ;
     }
 
     jsQueryXPath(args) {
@@ -390,7 +388,7 @@ console.log = function (message) {
 const package = "${extension.package}";
 const name = "${extension.name}";
 // 在 load 中注册的 keys
-settingKeys = [];
+const settingKeys = [];
 
 
 
@@ -440,7 +438,7 @@ const Miru = {
   },
   registerSetting: async (settings) => {
     console.log(JSON.stringify([settings]));
-    this.settingKeys.push(settings.key);
+    settingKeys.push(settings.key);
     return await handlePromise("registerSetting$className", JSON.stringify([settings]));
   },
   getSetting: async (key) => {
@@ -470,7 +468,7 @@ var checkUpdate = () => {
 }
 
 
-var load = () => { }
+async function load() { }
 
 const handlePromise = async (channelName, message) => {
   const waitForChange = new Promise(resolve => {
@@ -538,7 +536,7 @@ console.log = function (message) {
 const package = "${extension.package}";
 const name = "${extension.name}";
 // 在 load 中注册的 keys
-settingKeys = [];
+const settingKeys = [];
 
 const Miru = {
     request: async (url, options) => {
@@ -594,7 +592,7 @@ const Miru = {
     },
     registerSetting: async (settings) => {
         console.log(JSON.stringify([settings]));
-        this.settingKeys.push(settings.key);
+        settingKeys.push(settings.key);
         return sendMessage("registerSetting", JSON.stringify([settings]));
     },
     convert: async (data, from, to) => {
@@ -619,7 +617,7 @@ var watch = () => {
 var checkUpdate = () => {
     throw new Error("not implement checkUpdate");
 }
-var load = () => { }
+async function load() { }
 
 
 const stringify = async (callback) => {
@@ -630,10 +628,15 @@ const stringify = async (callback) => {
     runtime.evaluate('''
       $ext
       $extScript
-      if(${Platform.isLinux}){
-           DartBridge.sendMessage("cleanSettings$className",JSON.stringify([extension.settingKeys]));
-        }else
-        {sendMessage("cleanSettings", JSON.stringify([extension.settingKeys]))};
+      load().then(()=>
+        {
+          if (${Platform.isLinux}) {
+              DartBridge.sendMessage("cleanSettings$className", JSON.stringify([settingKeys]));
+          } else {
+              sendMessage("cleanSettings", JSON.stringify([settingKeys]))
+          }
+      }
+);
     ''');
   }
 
@@ -708,6 +711,22 @@ const stringify = async (callback) => {
           ExtensionFilter.fromJson(value),
         ),
       );
+    });
+  }
+
+  Future<List<ReconstructPicVertex>> recompseImage(
+      int width, int height, int imageIndex) {
+    return runExtension(() async {
+      final jsResult = await runtime.handlePromise(
+        await runtime.evaluateAsync(Platform.isLinux
+            ? 'recomposeImage($width,$height,$imageIndex)'
+            : 'stringify(()=>recomposeImage($width,$height,$imageIndex))'),
+      );
+      final List<ReconstructPicVertex> result = (jsonDecode(
+              jsResult.stringResult) as List<dynamic>)
+          .map((e) => ReconstructPicVertex.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return result;
     });
   }
 
